@@ -11,9 +11,8 @@ Requirements
 -python with the following modules:
     -numpy
     -pyopencl
-    -pycparser
+    -clang (can be installed by using built-in externals)
     -nose (for testing)
-
 
 Testing
 =======

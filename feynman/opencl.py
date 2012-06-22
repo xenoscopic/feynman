@@ -4,8 +4,8 @@ from os.path import exists, isfile
 #PyOpenCL modules
 import pyopencl as cl
 
-#C parsing modules
-import pycparser
+#Feynman modules
+from .parsing import find_c_function_declarations
 
 def platform_sort_key(platform):
     #Sort platforms based on number of devices
@@ -46,46 +46,21 @@ class OpenClContext(object):
         #Create a command queue
         self.__queue = cl.CommandQueue(self.__context, self.__device)
 
-    def get_platform(self):
+    @property
+    def platform(self):
         return self.__platform
 
-    def set_platform(self, platform):
-        raise AttributeError("The platform property is read-only.")
-
-    def del_platform(self):
-        raise AttributeError("The platform property is read-only.")
-
-    def get_device(self):
+    @property
+    def device(self):
         return self.__device
 
-    def set_device(self, device):
-        raise AttributeError("The device property is read-only.")
-
-    def del_device(self):
-        raise AttributeError("The device property is read-only.")
-
-    def get_context(self):
+    @property
+    def context(self):
         return self.__context
 
-    def set_context(self, context):
-        raise AttributeError("The context property is read-only.")
-
-    def del_context(self):
-        raise AttributeError("The context property is read-only.")
-
-    def get_queue(self):
+    @property
+    def queue(self):
         return self.__queue
-
-    def set_queue(self, queue):
-        raise AttributeError("The queue property is read-only.")
-
-    def del_queue(self):
-        raise AttributeError("The queue property is read-only.")
-
-    platform = property(get_platform, set_platform, del_platform)
-    device = property(get_device, set_device, del_device)
-    context = property(get_context, set_context, del_context)
-    queue = property(get_queue, set_queue, del_queue)
 
 class OpenClSourceFile(object):
     def __init__(self, file_path):
@@ -98,17 +73,13 @@ class OpenClSourceFile(object):
             raise ValueError("The file_path argument must point to a file.")
         self.__file_path = file_path
 
-        #Parse the source file
-        parser = pycparser()
+        #Grab the function declarations
+        self.__functions = find_c_function_declarations(file_path)
 
-    def get_file_path(self):
+    @property
+    def file_path(self):
         return self.__file_path
 
-    def set_file_path(self, file_path):
-        raise AttributeError("The file_path property is read-only.")
-
-    def del_file_path(self):
-        raise AttributeError("The file_path property is read-only.")
-
-    file_path = property(get_file_path, set_file_path, del_file_path)
-
+    @property
+    def functions(self):
+        return self.__functions
