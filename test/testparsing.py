@@ -34,7 +34,7 @@ def test_parsing():
     #matches the number expected
     assert(len(function_declarations) == len(validation_data))
 
-    #Loop though and make sure the parsing worked
+    #Loop through and make sure the parsing worked
     for decl, data in zip(function_declarations, validation_data):
         assert(decl.name == data["name"])
         assert(decl.return_type == data["return_type"])
