@@ -8,18 +8,18 @@ import json
 #Testing modules
 from common import resources_path
 
-def test_parsing():
+def _compare_parsing(file_name):
     #Grab the resources path
     resource_directory_path = resources_path()
 
     #Grab the input code path
-    input_code = join(resource_directory_path, "parsing_test_code.cl")
+    input_file_path = join(resource_directory_path, file_name)
 
     #Grab the validation information path
     validation_information = join(resource_directory_path, "parsing_test_validation.json")
 
     #Parse the input code
-    function_declarations = parsing.find_c_function_declarations(input_code)
+    input_file = parsing.CFile(input_file_path)
 
     #Parse the validation code
     validation_file = open(validation_information, "r")
@@ -28,14 +28,40 @@ def test_parsing():
     validation_data = json.loads(validation_data)
 
     #Make sure there is at least one function detected
-    assert(len(function_declarations) > 0)
+    assert(len(input_file.function_declarations) > 0)
 
     #Make sure the number of function declarations
     #matches the number expected
-    assert(len(function_declarations) == len(validation_data))
+    assert(len(input_file.function_declarations) == len(validation_data))
 
     #Loop through and make sure the parsing worked
-    for decl, data in zip(function_declarations, validation_data):
+    for decl, data in zip(input_file.function_declarations, validation_data):
         assert(decl.name == data["name"])
         assert(decl.return_type == data["return_type"])
         assert(decl.argument_types == tuple(data["argument_types"]))
+
+def test_header_parsing():
+    _compare_parsing("parsing_test_code.h")
+
+def test_source_parsing():
+    _compare_parsing("parsing_test_code.cl")
+
+def test_body_parsing():
+    #Grab the resources path
+    resource_directory_path = resources_path()
+
+    #Grab the input code path
+    header_path = join(resource_directory_path, "parsing_test_code.h")
+    source_path = join(resource_directory_path, "parsing_test_code.cl")
+
+    #Parse the input code
+    header_file = parsing.CFile(header_path)
+    source_file = parsing.CFile(source_path)
+
+    #Make sure headers don't have bodies
+    for decl in header_file.function_declarations:
+        assert(not decl.has_body)
+
+    #Make sure source files do!
+    for decl in source_file.function_declarations:
+        assert(decl.has_body)

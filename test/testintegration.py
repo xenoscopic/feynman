@@ -12,17 +12,17 @@ def test_integral_generation():
     resource_directory_path = resources_path()
 
     #Grab the input code path
-    input_code = join(resource_directory_path, "parsing_test_code.cl")
+    input_code_path = join(resource_directory_path, "parsing_test_code.cl")
 
     #Parse the input code
-    function_declarations = parsing.find_c_function_declarations(input_code)
-
+    input_code = parsing.CFile(input_code_path)
+    
     #Make sure there is at least one function detected
-    assert(len(function_declarations) > 0)
+    assert(len(input_code.function_declarations) > 0)
 
     #Loop through and generate an integral for each integrand,
     #validating that the integrals make sense.
-    for integrand in function_declarations:
+    for integrand in input_code.function_declarations:
         #Create an integral
         integral = integration.FunctionIntegral(integrand)
 

@@ -4,6 +4,9 @@
         {
             "path": ".",
             "folder_exclude_patterns": ["externals"]
+        },
+        {
+            "path": "externals/src/llvm/tools/clang/bindings/python/clang"
         }
     ],
     "settings":

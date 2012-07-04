@@ -2,3 +2,4 @@ externals*
 *.pyc
 *.DS_Store*
 *._*
+*.sublime-workspace

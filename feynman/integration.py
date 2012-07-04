@@ -4,6 +4,12 @@ from itertools import chain
 #Feynman modules
 from .parsing import CFunctionDeclaration
 
+#Integrator types for integral code generation
+INTEGRATOR_TYPE_GSL_MONTE_CARLO_PLAIN = "INTEGRATOR_TYPE_GSL_MONTE_CARLO_PLAIN"
+INTEGRATOR_TYPE_GSL_MONTE_CARLO_MISER = "INTEGRATOR_TYPE_GSL_MONTE_CARLO_MISER"
+INTEGRATOR_TYPE_GSL_MONTE_CARLO_VEGAS = "INTEGRATOR_TYPE_GSL_MONTE_CARLO_VEGAS"
+INTEGRATOR_TYPE_OPENCL_MONTE_CARLO_PLAIN = "INTEGRATOR_TYPE_OPENCL_MONTE_CARLO_PLAIN"
+
 class FunctionIntegral(CFunctionDeclaration):
     def __init__(self, integrand, integral_name = None):
         #Validate the integrand
@@ -38,8 +44,52 @@ class FunctionIntegral(CFunctionDeclaration):
     def integrand(self):
         return self.__integrand
 
-    def generate_integrator(self):
+    @property
+    def fix_parameter(self, variable_name_or_index, value):
+        #TODO!
         pass
 
-class OpenClFunctionIntegral(FunctionIntegral):
-    pass
+    @property
+    def transform_variable(self, variable_name_or_index):
+        #TODO!
+        pass
+
+class FunctionIntegrator(object):
+    def __init__(self, integral):
+        #Validate the integral
+        if not isinstance(integral, FunctionIntegral):
+            raise TypeError("The integral must be a FunctionIntegral.")
+        
+        #Store the integral
+        self.__integral = integral
+
+    @property
+    def integral(self):
+        return self.__integral
+
+    def generate_code(self, output = None):
+        raise RuntimeError("FunctionIntegrator is an abstract base class.  " \
+                           "You must call generate_code from one of its " \
+                           "concrete subclasses.")
+
+class GslPlainMonteCarloFunctionIntegrator(FunctionIntegrator):
+    def generate_code(self, output = None):
+        pass
+
+class GslVegasMonteCarloFunctionIntegrator(FunctionIntegrator):
+    def __init__(self, integral, pdfs):
+        pass
+
+    def generate_code(self, output = None):
+        pass
+
+class GslMiserMonteCarloFunctionIntegrator(FunctionIntegrator):
+    def generate_code(self, output = None):
+        pass
+
+class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
+    def generate_code(self, output = None, target_device = None):
+        pass
+
+
+
