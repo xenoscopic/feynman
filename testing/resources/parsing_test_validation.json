@@ -1,0 +1,20 @@
+[
+    {
+        "name": "test_function_1",
+        "return_type": "float",
+        "argument_types": ["float", "float"],
+        "argument_names": ["x", "y"]
+    },
+    {
+        "name": "test_function_2",
+        "return_type": "int",
+        "argument_types": ["int", "bool", "float", "double"],
+        "argument_names": ["a", "b", "c", "d"]
+    },
+    {
+        "name": "test_function_3",
+        "return_type": "void",
+        "argument_types": ["double", "bool", "char", "int"],
+        "argument_names": ["N", "b", "c", "data"]
+    }
+]

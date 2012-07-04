@@ -1,4 +1,4 @@
-float unit_cylinder(float x, float y)
+float test_function_1(float x, float y)
 {
     //Cylinder with height 1.0 and radius
     //1.0 with bottom face's center at
@@ -14,7 +14,7 @@ float unit_cylinder(float x, float y)
     return 0.0;
 }
 
-int test_function(int a, bool b, float c, double d)
+int test_function_2(int a, bool b, float c, double d)
 {
     if(a > 2)
     {
@@ -33,4 +33,9 @@ int test_function(int a, bool b, float c, double d)
         return 2;
     }
     return 1;
+}
+
+void test_function_3(double N, bool b, char c, int data)
+{
+
 }

@@ -1,18 +1,15 @@
+#Common testing modules
+from common import testing_resource_path
+
 #Feynman modules
 from feynman import parsing, integration
 
 #System modules
 from os.path import join
 
-#Testing modules
-from common import resources_path
-
 def test_integral_generation():
-    #Grab the resources path
-    resource_directory_path = resources_path()
-
     #Grab the input code path
-    input_code_path = join(resource_directory_path, "parsing_test_code.cl")
+    input_code_path = join(testing_resource_path, "parsing_test_code.cl")
 
     #Parse the input code
     input_code = parsing.CFile(input_code_path)
@@ -40,3 +37,7 @@ def test_integral_generation():
             for i in xrange(0, 2):
                 assert(integral.argument_types[arg_i + i])
             arg_i += 2
+
+        #Make sure the argument names make sense.
+        assert(len(integrand.argument_names) == len(integrand.argument_types))
+        

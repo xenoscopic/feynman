@@ -11,7 +11,7 @@ setup(
     #Package information
     name = "feynman",
     version = "0.1",
-    packages = ["feynman"],
+    packages = find_packages("packages"),
     package_data = {
         #Note that the forward slashes
         #are cross-platform (inc. Windows),
