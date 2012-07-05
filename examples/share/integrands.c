@@ -1,3 +1,9 @@
+#include "integrands.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264338328
+#endif
+
 float unit_cylinder(float x, float y)
 {
     //Cylinder with height 1.0 and radius
@@ -12,4 +18,10 @@ float unit_cylinder(float x, float y)
 
     //Outside the unit circle
     return 0.0;
+}
+
+double random_walk(float x, float y, float z)
+{
+    double result = 1.0/(M_PI * M_PI * M_PI);
+    return result/(1.0 - cos(x) * cos(y) * cos(z));
 }
