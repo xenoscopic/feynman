@@ -1,8 +1,14 @@
 #System modules
+import sys
 from itertools import chain
+from pkg_resources import resource_string
+import re
 
 #Feynman modules
 from .parsing import CFunctionDeclaration
+
+#Cheetah modules
+from Cheetah.Template import Template
 
 class FunctionIntegral(CFunctionDeclaration):
     def __init__(self, integrand, integral_name = None):
@@ -63,20 +69,39 @@ class FunctionIntegral(CFunctionDeclaration):
         #TODO!
         pass
 
+    @property
+    def n_dimensions(self):
+        #TODO: Implement corrections from variable transformations
+        return len(self.argument_types) / 2
+
 class FunctionIntegrator(object):
-    def __init__(self, integral):
+    def __init__(self, integral, file_name = "Integrate"):
         #Validate the integral
         if not isinstance(integral, FunctionIntegral):
             raise TypeError("The integral must be a FunctionIntegral.")
-        
-        #Store the integral
         self.__integral = integral
+
+        #Validate the file name
+        if not isinstance(file_name, basestring):
+            raise TypeError("The file name must be a string.")
+        valid_characters = re.compile("[\W_]+")
+        file_name = valid_characters.sub('', file_name)
+        if file_name == "":
+            raise ValueError("The file name must contain " \
+                             "only alphanumeric characters " \
+                             "and must contain at least one " \
+                             "of them.")
+        self.__file_name = file_name
 
     @property
     def integral(self):
         return self.__integral
 
-    def generate_code(self, header_output = None, code_output = None):
+    @property
+    def file_name(self):
+        return self.__file_name
+
+    def generate_code(self, header_output = sys.stdout, source_output = sys.stdout):
         raise RuntimeError("FunctionIntegrator is an abstract base class.  " \
                            "You must call generate_code from one of its " \
                            "concrete subclasses.")
@@ -104,27 +129,92 @@ _GSL_MONTE_CARLO_TEMPLATES = {
         "gsl_vegas_monte_carlo.c"
     )
 }
+_MONTE_CARLO_TEMPLATE_PATH = "templates"
 
 class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
-    def __init__(self, integral, gsl_monte_carlo_type = GSL_MONTE_CARLO_PLAIN):
+    def __init__(self, 
+                 integral, 
+                 file_name = "Integrate", 
+                 gsl_monte_carlo_type = GSL_MONTE_CARLO_PLAIN,
+                 n_calls = 500000):
         #Validate the GSL Monte Carlo type
         if gsl_monte_carlo_type not in _ALL_GSL_MONTE_CARLO_TYPES:
             raise ValueError("Invalid GSL Monte Carlo type specified.")
         self.__gsl_monte_carlo_type = gsl_monte_carlo_type
 
+        #Validate the number of calls
+        if not isinstance(n_calls, int) or n_calls < 1:
+            raise TypeError("Number of calls must be an integer >= 1.")
+        self.__n_calls = n_calls
+
         #Call the base constructor
-        super(GslMonteCarloFunctionIntegrator, self).__init__(integral)
+        super(GslMonteCarloFunctionIntegrator, self).__init__(integral, file_name)
 
     @property
     def gsl_monte_carlo_type(self):
         return self.__gsl_monte_carlo_type
 
-    def generate_code(self, header_output = None, code_output = None):
-        #Grab the template paths
-        template_h, template_c = _GSL_MONTE_CARLO_TEMPLATES[self.__gsl_monte_carlo_type]
+    @property
+    def n_calls(self):
+        return self.__n_calls
 
-        #Run the templating engine
+    def generate_code(self, 
+                      header_output = sys.stdout, 
+                      source_output = sys.stdout):
+        #Grab the template names
+        header_template_name, source_template_name \
+            = _GSL_MONTE_CARLO_TEMPLATES[self.__gsl_monte_carlo_type]
+
+        #Compute template paths using the pkg_resources API.
+        #NOTE: We use "/" as the path separator here, this
+        #is because these are not actually file system paths,
+        #and the pkg_resources API will convert them to the 
+        #appropriate separators in a cross-platform manner.
+        header_template = resource_string(__name__, 
+                                          "/".join([
+                                          _MONTE_CARLO_TEMPLATE_PATH, 
+                                          header_template_name
+                                          ])
+                                         )
+        source_template = resource_string(__name__, 
+                                          "/".join([
+                                          _MONTE_CARLO_TEMPLATE_PATH, 
+                                          source_template_name
+                                          ])
+                                         )
+
+        #Create the data
+        template_data = {
+            "integral": self.integral,
+            "file_name": self.file_name,
+            "n_calls": self.n_calls
+        }
+
+        #Load the templates and fill with data
+        header_template = Template(header_template, searchList = [template_data])
+        source_template = Template(source_template, searchList = [template_data])
+
+        #Spit out the templates.  For each we first
+        #check if the output has a 'write' method 
+        #and then call that, or we treat it as a file
+        #path.  I considered checking for 
+        #isinstance(output, io.IOBase), but this wouldn't
+        #work for a lot of things (sys.stdout, StringIO),
+        #so I'm just doing this for now.
+        if hasattr(header_output, "write"):
+            header_output.write(str(header_template))
+        else:
+            with open(header_output, "w") as f:
+                f.write(str(header_template))
+        if hasattr(source_output, "write"):
+            source_output.write(str(source_template))
+        else:
+            with open(source_output, "w") as f:
+                f.write(str(source_template))
+
 
 class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
-    def generate_code(self, header_output = None, code_output = None):
+    def generate_code(self, 
+                      header_output = sys.stdout, 
+                      source_output = sys.stdout):
         pass

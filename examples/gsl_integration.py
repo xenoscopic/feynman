@@ -28,4 +28,4 @@ integral.add_include_dependency("integrand.h")
 
 #Generate code for the function
 integrator = GslMonteCarloFunctionIntegrator(integral)
-
+integrator.generate_code()
