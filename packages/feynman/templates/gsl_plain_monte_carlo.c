@@ -49,5 +49,11 @@ $integral.signature
     gsl_monte_plain_free(s);
     gsl_rng_free(r);
 
+    //Store results
+    if(error != NULL)
+    {
+        *error = error;
+    }
+
     return result;
 }

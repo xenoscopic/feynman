@@ -2,10 +2,10 @@
 import sys
 from itertools import chain
 from pkg_resources import resource_string
-import re
 
 #Feynman modules
 from .parsing import CFunctionDeclaration
+from .common import validate_code_string
 
 #Cheetah modules
 from Cheetah.Template import Template
@@ -32,8 +32,11 @@ class FunctionIntegral(CFunctionDeclaration):
         #for each argument in the original integrand.  We use this
         #rather pythonic transform which will essentially do
         #   (1, 2, 3) -> (1, 1, 2, 2, 3, 3)
+        #We also create a last argument which will return the error
+        #into a pointer (if provided).
         argument_types = integrand.argument_types
         argument_types = tuple(chain(*zip(argument_types, argument_types)))
+        argument_types += (integrand.return_type + " *",)
 
         #Generate argument names.  We suffix _min and _max to each
         #argument if it is already given, otherwise we just name it
@@ -48,12 +51,17 @@ class FunctionIntegral(CFunctionDeclaration):
                 argument_names.append("%s_min" % name)
                 argument_names.append("%s_max" % name)
         argument_names = tuple(argument_names)
+        argument_names += ("error",)
+
+        #Generate argument default values
+        argument_default_values = ("",) * (len(argument_names) - 1) + ("NULL",)
 
         #Initialize the super-class
         super(FunctionIntegral, self).__init__(integral_name, 
                                                integrand.return_type,
                                                argument_types,
-                                               argument_names)
+                                               argument_names,
+                                               argument_default_values)
 
     @property
     def integrand(self):
@@ -82,15 +90,7 @@ class FunctionIntegrator(object):
         self.__integral = integral
 
         #Validate the file name
-        if not isinstance(file_name, basestring):
-            raise TypeError("The file name must be a string.")
-        valid_characters = re.compile("[\W_]+")
-        file_name = valid_characters.sub('', file_name)
-        if file_name == "":
-            raise ValueError("The file name must contain " \
-                             "only alphanumeric characters " \
-                             "and must contain at least one " \
-                             "of them.")
+        validate_code_string(file_name)
         self.__file_name = file_name
 
     @property

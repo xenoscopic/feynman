@@ -6,13 +6,22 @@ from itertools import chain
 from clang import cindex
 
 class CFunctionDeclaration(object):
-    def __init__(self, name, return_type, argument_types, argument_names, file_path = None, extent = None, text = None):
+    def __init__(self, 
+                 name, 
+                 return_type, 
+                 argument_types, 
+                 argument_names, 
+                 argument_default_values,
+                 file_path = None, 
+                 extent = None, 
+                 text = None):
         #TODO: Type checking
 
         self.__name = name
         self.__return_type = return_type
         self.__argument_types = argument_types
         self.__argument_names = argument_names
+        self.__argument_default_values = argument_default_values
         self.__file_path = file_path
         self.__extent = extent
         self.__text = text
@@ -197,6 +206,8 @@ def _function_declaration_finder(node, results, file_path):
                                 for n 
                                 in node.get_children()
                                 if n.kind == cindex.CursorKind.PARM_DECL])
+        #TODO: See if we can get this info via Clang
+        argument_default_values = ("",) * len(argument_names)
 
         #Grab the function location
         start = node.extent.start
@@ -208,6 +219,7 @@ def _function_declaration_finder(node, results, file_path):
                                             return_type, 
                                             argument_types,
                                             argument_names,
+                                            argument_default_values,
                                             file_path,
                                             extent))
 

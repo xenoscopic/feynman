@@ -3,3 +3,4 @@ externals*
 *.DS_Store*
 *._*
 *.sublime-workspace
+examples/c-integration/build*
