@@ -11,8 +11,8 @@
 #ifdef HAVE_GSL
 #include "plain_integrate_unit_cylinder.h"
 #include "plain_integrate_random_walk.h"
-// #include "miser_integrate_unit_cylinder.h"
-// #include "miser_integrate_random_walk.h"
+#include "miser_integrate_unit_cylinder.h"
+#include "miser_integrate_random_walk.h"
 // #include "vegas_integrate_unit_cylinder.h"
 // #include "vegas_integrate_random_walk.h"
 #endif
@@ -103,6 +103,10 @@ int main()
                                &plain_integrate_unit_cylinder);
     run_random_walk_integral("GSL Plain Random Walk", 
                              &plain_integrate_random_walk);
+    run_unit_cylinder_integral("GSL Miser Unit Cylinder", 
+                               &miser_integrate_unit_cylinder);
+    run_random_walk_integral("GSL Miser Random Walk", 
+                             &miser_integrate_random_walk);
 
     #endif
 

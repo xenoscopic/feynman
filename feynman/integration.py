@@ -116,19 +116,12 @@ _ALL_GSL_MONTE_CARLO_TYPES = [
     GSL_MONTE_CARLO_MISER,
     GSL_MONTE_CARLO_VEGAS
 ]
+_GSL_BASE_MONTE_CARLO_HEADER = "gsl_base_monte_carlo.h"
+_GSL_BASE_MONTE_CARLO_SOURCE = "gsl_base_monte_carlo.c"
 _GSL_MONTE_CARLO_TEMPLATES = {
-    GSL_MONTE_CARLO_PLAIN: (
-        "gsl_plain_monte_carlo.h",
-        "gsl_plain_monte_carlo.c"
-    ),
-    GSL_MONTE_CARLO_MISER: (
-        "gsl_miser_monte_carlo.h",
-        "gsl_miser_monte_carlo.c"
-    ),
-    GSL_MONTE_CARLO_VEGAS: (
-        "gsl_vegas_monte_carlo.h",
-        "gsl_vegas_monte_carlo.c"
-    )
+    GSL_MONTE_CARLO_PLAIN: "gsl_plain_monte_carlo.c",
+    GSL_MONTE_CARLO_MISER: "gsl_miser_monte_carlo.c",
+    GSL_MONTE_CARLO_VEGAS: "gsl_vegas_monte_carlo.c"
 }
 _MONTE_CARLO_TEMPLATE_PATH = "templates"
 
@@ -163,8 +156,7 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
                       header_output = sys.stdout, 
                       source_output = sys.stdout):
         #Grab the template names
-        header_template_name, source_template_name \
-            = _GSL_MONTE_CARLO_TEMPLATES[self.__gsl_monte_carlo_type]
+        integration_template_name = _GSL_MONTE_CARLO_TEMPLATES[self.__gsl_monte_carlo_type]
 
         #Compute template paths using the pkg_resources API.
         #NOTE: We use "/" as the path separator here, this
@@ -174,15 +166,21 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
         header_template = resource_string(__name__, 
                                           "/".join([
                                           _MONTE_CARLO_TEMPLATE_PATH, 
-                                          header_template_name
+                                          _GSL_BASE_MONTE_CARLO_HEADER
                                           ])
                                          )
         source_template = resource_string(__name__, 
                                           "/".join([
                                           _MONTE_CARLO_TEMPLATE_PATH, 
-                                          source_template_name
+                                          _GSL_BASE_MONTE_CARLO_SOURCE
                                           ])
                                          )
+        integration_template = resource_string(__name__, 
+                                               "/".join([
+                                               _MONTE_CARLO_TEMPLATE_PATH, 
+                                               integration_template_name
+                                               ])
+                                               )
 
         #Compute what the include header should be
         if self.header_include_name:
@@ -200,6 +198,8 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
         }
 
         #Load the templates and fill with data
+        integration_template = Template(integration_template, searchList = [template_data])
+        template_data["integration_template"] = str(integration_template)
         header_template = Template(header_template, searchList = [template_data])
         source_template = Template(source_template, searchList = [template_data])
 
