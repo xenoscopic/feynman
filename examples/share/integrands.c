@@ -21,6 +21,6 @@ float unit_cylinder(float x, float y)
 
 double random_walk(float x, float y, float z)
 {
-    double result = 1.0/(M_PI * M_PI * M_PI);
+    double result = 1.0/(8 * M_PI * M_PI * M_PI);
     return result/(1.0 - cos(x) * cos(y) * cos(z));
 }
