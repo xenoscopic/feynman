@@ -61,8 +61,8 @@ IF(GSL_FOUND)
     #Set the GSL integration types
     SET(GSL_INTEGRATION_TYPES
         "gsl-plain"
-        #"gsl-miser"
-        #"gsl-vegas"
+        "gsl-miser"
+        "gsl-vegas"
     )
 
     #Loop over each integration type
@@ -80,28 +80,29 @@ IF(GSL_FOUND)
             #Compute the output function name
             SET(OUTPUT_FUNCTION_NAME "${FILE_PREFIX}${f}")
 
-            #Compute the target name
-            SET(TARGET_NAME "${FILE_PREFIX}${f}")
-
             #Create the command
-            ADD_CUSTOM_TARGET(${TARGET_NAME}
-                              COMMAND python ${FEYNMAN_SOURCE_PATH}/genint.py --integrand-file ${INTEGRAND_HEADER_PATH} --integrand-name ${f} --dependencies integrands.h --header-output-path ${HEADER_OUTPUT_PATH} --source-output-path ${SOURCE_OUTPUT_PATH} --output-integral-name ${OUTPUT_FUNCTION_NAME} --backend ${t}
-                              WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-
+            ADD_CUSTOM_COMMAND(OUTPUT ${HEADER_OUTPUT_PATH} ${SOURCE_OUTPUT_PATH}
+                               COMMAND ${FEYNMAN_SOURCE_PATH}/genint.py --integrand-file ${INTEGRAND_HEADER_PATH} --integrand-name ${f} --dependencies integrands.h --header-output-path ${HEADER_OUTPUT_PATH} --source-output-path ${SOURCE_OUTPUT_PATH} --output-integral-name ${OUTPUT_FUNCTION_NAME} --backend ${t}
+                               VERBATIM)
+            
             #Record the target and output files
-            SET(INTEGRATOR_TARGETS
-                ${INTEGRATOR_TARGETS}
-                ${TARGET_NAME})
-            SET(INTEGRATOR_FILES
-                ${INTEGRATOR_FILES}
+            SET(INTEGRATOR_HEADERS
+                ${INTEGRATOR_HEADERS}
+                ${HEADER_OUTPUT_PATH})
+            SET(INTEGRATOR_SOURCES
+                ${INTEGRATOR_SOURCES}
                 ${SOURCE_OUTPUT_PATH})
         ENDFOREACH(f)
     ENDFOREACH(t)
 ENDIF(GSL_FOUND)
 
+#Add the integration target
+ADD_CUSTOM_TARGET(INTEGRATOR_CODE_TARGET
+                  DEPENDS ${INTEGRATOR_HEADERS} ${INTEGRATOR_SOURCES})
+
 #Add main executable
-ADD_EXECUTABLE(integrate main.c ${INTEGRAND_SOURCE_PATH} ${INTEGRATOR_FILES})
-ADD_DEPENDENCIES(integrate ${INTEGRATOR_TARGETS})
+ADD_EXECUTABLE(integrate main.c ${INTEGRAND_SOURCE_PATH} ${INTEGRATOR_SOURCES})
+ADD_DEPENDENCIES(integrate INTEGRATOR_CODE_TARGET)
 
 #Set up linking
 TARGET_LINK_LIBRARIES(integrate 

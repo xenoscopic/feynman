@@ -7,7 +7,7 @@
 //GSL includes
 \#include <gsl/gsl_math.h>
 \#include <gsl/gsl_monte.h>
-\#include <gsl/gsl_monte_plain.h>
+\#include <$integration_header_name>
 
 #if len($integral.include_dependencies) > 0
 //Depedency includes
@@ -16,7 +16,7 @@
 #end for
 #end if
 
-double _${integral.integrand.name}_wrapper(double *x, size_t dim, void *params)
+double _${integral.name}_wrapper(double *x, size_t dim, void *params)
 {
     return ${integral.integrand.name}(${", ".join(["x[%i]" % i for i in xrange(0, len($integral.integrand.argument_types))])});
 }
@@ -38,7 +38,7 @@ $integral.signature
     r = gsl_rng_alloc(T);
 
     //Call variables
-    gsl_monte_function G = {&_${integral.integrand.name}_wrapper, 
+    gsl_monte_function G = {&_${integral.name}_wrapper, 
                             $integral.n_dimensions,
                             NULL};
     size_t n_calls = $n_calls;

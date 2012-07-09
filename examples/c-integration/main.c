@@ -13,8 +13,8 @@
 #include "plain_integrate_random_walk.h"
 #include "miser_integrate_unit_cylinder.h"
 #include "miser_integrate_random_walk.h"
-// #include "vegas_integrate_unit_cylinder.h"
-// #include "vegas_integrate_random_walk.h"
+#include "vegas_integrate_unit_cylinder.h"
+#include "vegas_integrate_random_walk.h"
 #endif
 
 #ifdef HAVE_OPENCL
@@ -107,7 +107,10 @@ int main()
                                &miser_integrate_unit_cylinder);
     run_random_walk_integral("GSL Miser Random Walk", 
                              &miser_integrate_random_walk);
-
+    run_unit_cylinder_integral("GSL Vegas Unit Cylinder", 
+                               &vegas_integrate_unit_cylinder);
+    run_random_walk_integral("GSL Vegas Random Walk", 
+                             &vegas_integrate_random_walk);
     #endif
 
     return 0;

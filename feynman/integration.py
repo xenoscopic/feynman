@@ -123,6 +123,11 @@ _GSL_MONTE_CARLO_TEMPLATES = {
     GSL_MONTE_CARLO_MISER: "gsl_miser_monte_carlo.c",
     GSL_MONTE_CARLO_VEGAS: "gsl_vegas_monte_carlo.c"
 }
+_GSL_MONTE_CARLO_INCLUDES = {
+    GSL_MONTE_CARLO_PLAIN: "gsl/gsl_monte_plain.h",
+    GSL_MONTE_CARLO_MISER: "gsl/gsl_monte_miser.h",
+    GSL_MONTE_CARLO_VEGAS: "gsl/gsl_monte_vegas.h"
+}
 _MONTE_CARLO_TEMPLATE_PATH = "templates"
 
 class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
@@ -157,6 +162,7 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
                       source_output = sys.stdout):
         #Grab the template names
         integration_template_name = _GSL_MONTE_CARLO_TEMPLATES[self.__gsl_monte_carlo_type]
+        integration_header_name = _GSL_MONTE_CARLO_INCLUDES[self.__gsl_monte_carlo_type]
 
         #Compute template paths using the pkg_resources API.
         #NOTE: We use "/" as the path separator here, this
@@ -194,6 +200,7 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
         template_data = {
             "integral": self.integral,
             "header_include_name": header_include_name,
+            "integration_header_name": integration_header_name,
             "n_calls": self.n_calls
         }
 
