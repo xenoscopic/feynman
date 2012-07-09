@@ -15,7 +15,6 @@ from feynman.integration import FunctionIntegral, \
                                 GSL_MONTE_CARLO_MISER, \
                                 GSL_MONTE_CARLO_VEGAS
 
-
 #Helper functions
 def parse_arguments():
     #Create the argument parser
@@ -26,7 +25,7 @@ def parse_arguments():
                         action = "store_true", 
                         help = "Show verbose output.")
     parser.add_argument("-i", 
-                        "--interand-file", 
+                        "--integrand-file", 
                         dest = "integrand_file", 
                         required = True, 
                         metavar = "FILE", 
@@ -54,27 +53,47 @@ def parse_arguments():
     parser.add_argument("-o",
                         "--output-file-base",
                         dest = "output_file_base",
-                        required = True,
+                        required = False,
+                        default = None,
                         metavar = "FILE",
                         help = "The base path of the output file.  This path will be " \
-                        "used to compute .h and .c output paths.")
+                        "used to compute .h and .c output paths if they are not " \
+                        "specified manually.")
+    parser.add_argument("-H",
+                        "--header-output-path",
+                        dest = "header_output_path",
+                        required = False,
+                        default = None,
+                        metavar = "HEADER_PATH",
+                        help = "The specific output path of the header.  This will " \
+                               "override any header path computed from output-file-base.")
+    parser.add_argument("-S",
+                        "--source-output-path",
+                        dest = "source_output_path",
+                        required = False,
+                        default = None,
+                        metavar = "SOURCE_PATH",
+                        help = "The specific output path of the source.  This will " \
+                               "override any header path computed from output-file-base.")
     parser.add_argument("-O",
                         "--output-integral-name",
                         dest = "output_integral_name",
                         required = True,
                         metavar = "FUNCTION",
                         help = "The name for the integral function in the output file.")
-    parser.add_argument("-H",
+    parser.add_argument("-N",
                         "--header-include-name",
                         dest = "header_include_name",
+                        required = False,
                         default = None,
                         metavar = "FILE",
                         help = "This option allows the user to override the name of " \
                                "the main included header file in the generated source " \
                                "file.  By default, this program will simply take " \
                                "the tail of the specified output path for the include " \
-                               "directive.  For instance, if the output base path is " \
-                               "/home/user/test, the included file will be test.h.  " \
+                               "directive.  For instance, if the output header is " \
+                               "/home/user/integral1.h, the included file will be " \
+                               "integral1.h.  " \
                                "However, it may be the case that the user wishes to " \
                                "relocate the header file and include it relative to " \
                                "some other path.  You can use this option to override " \
@@ -85,7 +104,7 @@ def parse_arguments():
     parser.add_argument("-b",
                         "--backend",
                         dest = "backend",
-                        required = True,
+                        required = False,
                         default = "gsl-plain",
                         metavar = "BACKEND",
                         help = "The integrator backend to use.  Available options are " \
@@ -157,8 +176,22 @@ if __name__ == "__main__":
         integrator = OpenClMonteCarloFunctionIntegrator(integral)
 
     #Compute output paths
-    output_header = args.output_file_base + ".h"
-    output_source = args.output_file_base + ".c"
+    if args.header_output_path != None:
+        output_header = args.header_output_path
+    elif args.output_file_base != None:
+        output_header = args.output_file_base + ".h"
+    else:
+        raise RuntimeError("Unable to compute header output path.  " \
+                           "You must specify either header-output-path " \
+                           "or output-file-base from the command line.")
+    if args.source_output_path != None:
+        output_source = args.source_output_path
+    elif args.output_file_base != None:
+        output_source = args.output_file_base + ".c"
+    else:
+        raise RuntimeError("Unable to compute source output path.  " \
+                           "You must specify either source-output-path " \
+                           "or output-file-base from the command line.")
     if args.verbose:
         print("Header output path: %s" % output_header)
         print("Source output path: %s" % output_source)
