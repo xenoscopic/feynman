@@ -4,3 +4,5 @@ externals*
 *._*
 *.sublime-workspace
 examples/c-integration/build*
+examples/c-integration/include*
+examples/c-integration/src*

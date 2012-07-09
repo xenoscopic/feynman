@@ -1,6 +1,10 @@
 #ifndef INTEGRANDS_H
 #define INTEGRANDS_H
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264338328
+#endif
+
 /* 
  * The unit cylinder which has once of its
  * flat faces in the XY plane, centered at

@@ -1,6 +1,9 @@
 //Self-includes
 \#include "${header_include_name}"
 
+//Standard includes
+\#include <stdlib.h>
+
 //GSL includes
 \#include <gsl/gsl_math.h>
 \#include <gsl/gsl_monte.h>
@@ -13,25 +16,30 @@
 #end for
 #end if
 
+double _${integral.integrand.name}_wrapper(double *x, size_t dim, void *params)
+{
+    return ${integral.integrand.name}(${", ".join(["x[%i]" % i for i in xrange(0, len($integral.integrand.argument_types))])});
+}
+
 $integral.signature
 {
     //Boiler plate GSL variables
-    double result, error;
+    double result, _error;
 
     //Determine upper/lower bounds
-    double lower_bounds[$integral.n_dimensions] = {${", ".join($integral.argument_names[::2])}};
-    double upper_bounds[$integral.n_dimensions] = {${", ".join($integral.argument_names[1::2])}};
+    double lower_bounds[$integral.n_dimensions] = {${", ".join($integral.argument_names[:-1:2])}};
+    double upper_bounds[$integral.n_dimensions] = {${", ".join($integral.argument_names[1:-1:2])}};
 
     //Random number variables
     const gsl_rng_type *T;
-    gsl_rng *t;
+    gsl_rng *r;
     gsl_rng_env_setup();
-    T = gsl_rng_default();
+    T = gsl_rng_default;
     r = gsl_rng_alloc(T);
 
     //Call variables
-    gsl_monte_function G = {&${integral.integrand.name}, 
-                            $integral.n_dimensions},
+    gsl_monte_function G = {&_${integral.integrand.name}_wrapper, 
+                            $integral.n_dimensions,
                             NULL};
     size_t n_calls = $n_calls;
 
@@ -45,7 +53,7 @@ $integral.signature
                               r, 
                               s, 
                               &result, 
-                              &error);
+                              &_error);
     
     //Cleanup
     gsl_monte_plain_free(s);
@@ -54,7 +62,7 @@ $integral.signature
     //Store results
     if(error != NULL)
     {
-        *error = error;
+        *error = _error;
     }
 
     return result;

@@ -1,8 +1,7 @@
 #include "integrands.h"
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846264338328
-#endif
+//Standard includes
+#include <math.h>
 
 float unit_cylinder(float x, float y)
 {
