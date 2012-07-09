@@ -2,6 +2,7 @@
 import sys
 from itertools import chain
 from pkg_resources import resource_string
+from os.path import basename
 
 #Feynman modules
 from .parsing import CFunctionDeclaration
@@ -23,8 +24,7 @@ class FunctionIntegral(CFunctionDeclaration):
         #a name, validate it, if not, just do some implementation-defined 
         #name mangling.
         if integral_name:
-            if not isinstance(integral_name, basestring):
-                raise TypeError("The integral name must be a string.")
+            validate_code_string(integral_name)
         else:
             integral_name = "%s_integral" % integrand.name
 
@@ -83,23 +83,24 @@ class FunctionIntegral(CFunctionDeclaration):
         return len(self.argument_types) / 2
 
 class FunctionIntegrator(object):
-    def __init__(self, integral, file_name = "Integrate"):
+    def __init__(self, integral, header_include_name = None):
         #Validate the integral
         if not isinstance(integral, FunctionIntegral):
             raise TypeError("The integral must be a FunctionIntegral.")
         self.__integral = integral
 
         #Validate the file name
-        validate_code_string(file_name)
-        self.__file_name = file_name
+        if header_include_name != None:
+            validate_code_string(header_include_name)
+        self.__header_include_name = header_include_name
 
     @property
     def integral(self):
         return self.__integral
 
     @property
-    def file_name(self):
-        return self.__file_name
+    def header_include_name(self):
+        return self.__header_include_name
 
     def generate_code(self, header_output = sys.stdout, source_output = sys.stdout):
         raise RuntimeError("FunctionIntegrator is an abstract base class.  " \
@@ -134,7 +135,7 @@ _MONTE_CARLO_TEMPLATE_PATH = "templates"
 class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
     def __init__(self, 
                  integral, 
-                 file_name = "Integrate", 
+                 header_include_name = None, 
                  gsl_monte_carlo_type = GSL_MONTE_CARLO_PLAIN,
                  n_calls = 500000):
         #Validate the GSL Monte Carlo type
@@ -148,7 +149,7 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
         self.__n_calls = n_calls
 
         #Call the base constructor
-        super(GslMonteCarloFunctionIntegrator, self).__init__(integral, file_name)
+        super(GslMonteCarloFunctionIntegrator, self).__init__(integral, header_include_name)
 
     @property
     def gsl_monte_carlo_type(self):
@@ -183,10 +184,18 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
                                           ])
                                          )
 
+        #Compute what the include header should be
+        if self.header_include_name:
+            header_include_name = self.header_include_name
+        elif isinstance(header_output, basestring):
+            header_include_name = basename(header_output)
+        else:
+            header_include_name = "Integral.h"
+
         #Create the data
         template_data = {
             "integral": self.integral,
-            "file_name": self.file_name,
+            "header_include_name": header_include_name,
             "n_calls": self.n_calls
         }
 

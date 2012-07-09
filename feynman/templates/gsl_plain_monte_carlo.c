@@ -1,15 +1,17 @@
 //Self-includes
-\#include ${file_name}.h
+\#include "${header_include_name}"
 
 //GSL includes
 \#include <gsl/gsl_math.h>
 \#include <gsl/gsl_monte.h>
 \#include <gsl/gsl_monte_plain.h>
 
-//Integrand includes
+#if len($integral.include_dependencies) > 0
+//Depedency includes
 #for $include_dependency in $integral.include_dependencies
 \#include "$include_dependency"
 #end for
+#end if
 
 $integral.signature
 {

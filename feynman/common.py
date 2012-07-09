@@ -6,7 +6,7 @@ def validate_code_string(s):
         raise TypeError("Specified value must be a string.")
     
     #Verify the content
-    invalid_characters = re.compile("[\W_]+")
+    invalid_characters = re.compile("[^a-zA-Z0-9_]+")
     cleaned = invalid_characters.sub('', s)
     if cleaned != s:
         raise ValueError("The value must contain only " \
