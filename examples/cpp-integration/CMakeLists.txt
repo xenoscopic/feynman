@@ -56,45 +56,51 @@ INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/../share)
 #Set the path to the Feynman source
 SET(FEYNMAN_SOURCE_PATH "${PROJECT_SOURCE_DIR}/../..")
 
-#Create GSL integrator code
+#Set the integration types
 IF(GSL_FOUND)
-    #Set the GSL integration types
-    SET(GSL_INTEGRATION_TYPES
+    SET(INTEGRATION_TYPES
+        ${INTEGRATION_TYPES}
         "gsl-plain"
         "gsl-miser"
         "gsl-vegas"
     )
-
-    #Loop over each integration type
-    FOREACH(t ${GSL_INTEGRATION_TYPES})
-        #Compute the file prefix
-        STRING(REPLACE "gsl-" "" FILE_SUFFIX ${t})
-        SET(FILE_SUFFIX "_${FILE_SUFFIX}_integrator")
-
-        #Loop over each integrand function
-        FOREACH(INTEGRAND ${INTEGRAND_FUNCTIONS})
-            #Compute the header/source output path
-            SET(HEADER_OUTPUT_PATH "${HEADER_OUTPUT_DIRECTORY}/${INTEGRAND}${FILE_SUFFIX}.h")
-            SET(SOURCE_OUTPUT_PATH "${SOURCE_OUTPUT_DIRECTORY}/${INTEGRAND}${FILE_SUFFIX}.cpp")
-
-            #Compute the output function name
-            SET(OUTPUT_CLASS_NAME "${INTEGRAND}${FILE_SUFFIX}")
-
-            #Create the command
-            ADD_CUSTOM_COMMAND(OUTPUT ${HEADER_OUTPUT_PATH} ${SOURCE_OUTPUT_PATH}
-                               COMMAND ${FEYNMAN_SOURCE_PATH}/genint.py --integrand-file ${INTEGRAND_HEADER_PATH} --integrand-name ${INTEGRAND} --dependencies integrands.h --header-output-path ${HEADER_OUTPUT_PATH} --source-output-path ${SOURCE_OUTPUT_PATH} --integrator-name ${OUTPUT_CLASS_NAME} --backend ${t}
-                               VERBATIM)
-            
-            #Record the target and output files
-            SET(INTEGRATOR_HEADERS
-                ${INTEGRATOR_HEADERS}
-                ${HEADER_OUTPUT_PATH})
-            SET(INTEGRATOR_SOURCES
-                ${INTEGRATOR_SOURCES}
-                ${SOURCE_OUTPUT_PATH})
-        ENDFOREACH(INTEGRAND)
-    ENDFOREACH(t)
 ENDIF(GSL_FOUND)
+IF(OPENCL_FOUND)
+    SET(INTEGRATION_TYPES
+        ${INTEGRATION_TYPES}
+        "opencl"
+    )
+ENDIF(OPENCL_FOUND)
+
+#Create each integration variant
+FOREACH(t ${INTEGRATION_TYPES})
+    #Compute the file prefix
+    STRING(REPLACE "-" "_" FILE_SUFFIX ${t})
+    SET(FILE_SUFFIX "_${FILE_SUFFIX}_integrator")
+
+    #Loop over each integrand function
+    FOREACH(INTEGRAND ${INTEGRAND_FUNCTIONS})
+        #Compute the header/source output path
+        SET(HEADER_OUTPUT_PATH "${HEADER_OUTPUT_DIRECTORY}/${INTEGRAND}${FILE_SUFFIX}.h")
+        SET(SOURCE_OUTPUT_PATH "${SOURCE_OUTPUT_DIRECTORY}/${INTEGRAND}${FILE_SUFFIX}.cpp")
+
+        #Compute the output function name
+        SET(OUTPUT_CLASS_NAME "${INTEGRAND}${FILE_SUFFIX}")
+
+        #Create the command
+        ADD_CUSTOM_COMMAND(OUTPUT ${HEADER_OUTPUT_PATH} ${SOURCE_OUTPUT_PATH}
+                           COMMAND ${FEYNMAN_SOURCE_PATH}/genint.py --integrand-file ${INTEGRAND_HEADER_PATH} --integrand-name ${INTEGRAND} --dependencies integrands.h --header-output-path ${HEADER_OUTPUT_PATH} --source-output-path ${SOURCE_OUTPUT_PATH} --integrator-name ${OUTPUT_CLASS_NAME} --backend ${t}
+                           VERBATIM)
+        
+        #Record the target and output files
+        SET(INTEGRATOR_HEADERS
+            ${INTEGRATOR_HEADERS}
+            ${HEADER_OUTPUT_PATH})
+        SET(INTEGRATOR_SOURCES
+            ${INTEGRATOR_SOURCES}
+            ${SOURCE_OUTPUT_PATH})
+    ENDFOREACH(INTEGRAND)
+ENDFOREACH(t)
 
 #Add the integration target
 ADD_CUSTOM_TARGET(INTEGRATOR_CODE_TARGET

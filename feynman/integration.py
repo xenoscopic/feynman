@@ -115,7 +115,7 @@ _GSL_MONTE_CARLO_INCLUDES = {
     GSL_MONTE_CARLO_MISER: "gsl/gsl_monte_miser.h",
     GSL_MONTE_CARLO_VEGAS: "gsl/gsl_monte_vegas.h"
 }
-_MONTE_CARLO_TEMPLATE_PATH = "templates"
+_GSL_MONTE_CARLO_TEMPLATE_PATH = "templates"
 
 class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
     def __init__(self, 
@@ -159,19 +159,19 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
         #appropriate separators in a cross-platform manner.
         header_template = resource_string(__name__, 
                                           "/".join([
-                                          _MONTE_CARLO_TEMPLATE_PATH, 
+                                          _GSL_MONTE_CARLO_TEMPLATE_PATH, 
                                           _GSL_BASE_MONTE_CARLO_HEADER
                                           ])
                                          )
         source_template = resource_string(__name__, 
                                           "/".join([
-                                          _MONTE_CARLO_TEMPLATE_PATH, 
+                                          _GSL_MONTE_CARLO_TEMPLATE_PATH, 
                                           _GSL_BASE_MONTE_CARLO_SOURCE
                                           ])
                                          )
         method_template = resource_string(__name__, 
                                           "/".join([
-                                          _MONTE_CARLO_TEMPLATE_PATH, 
+                                          _GSL_MONTE_CARLO_TEMPLATE_PATH, 
                                           gsl_method_template
                                           ])
                                          )
@@ -221,9 +221,78 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
             with open(source_output, "w") as f:
                 f.write(str(source_template))
 
+_OPENCL_MONTE_CARLO_HEADER = "OpenClMonteCarlo.h"
+_OPENCL_MONTE_CARLO_SOURCE = "OpenClMonteCarlo.cpp"
+_OPENCL_RANLUX_SOURCE = "ranluxcl.cl"
+_OPENCL_CARLO_TEMPLATE_PATH = "templates"
 
 class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
     def generate_code(self, 
                       header_output = sys.stdout, 
-                      source_output = sys.stdout):
-        pass
+                      source_output = sys.stdout,
+                      primary_header_include = None):
+        #Compute template paths using the pkg_resources API.
+        #NOTE: We use "/" as the path separator here, this
+        #is because these are not actually file system paths,
+        #and the pkg_resources API will convert them to the 
+        #appropriate separators in a cross-platform manner.
+        header_template = resource_string(__name__, 
+                                          "/".join([
+                                          _OPENCL_CARLO_TEMPLATE_PATH, 
+                                          _OPENCL_MONTE_CARLO_HEADER
+                                          ])
+                                         )
+        source_template = resource_string(__name__, 
+                                          "/".join([
+                                          _OPENCL_CARLO_TEMPLATE_PATH, 
+                                          _OPENCL_MONTE_CARLO_SOURCE
+                                          ])
+                                         )
+        ranlux_template = resource_string(__name__, 
+                                          "/".join([
+                                          _OPENCL_CARLO_TEMPLATE_PATH, 
+                                          _OPENCL_RANLUX_SOURCE
+                                          ])
+                                         )
+
+        #Compute what the primary include header and include
+        #guard should be.
+        if not primary_header_include:
+            if isinstance(header_output, basestring):
+                primary_header_include = basename(header_output)
+            else:
+                primary_header_include = "Integral.h"
+        include_guard = primary_header_include.replace("/", "_") \
+                                              .replace("\\", "_") \
+                                              .replace(".", "_") \
+                                              .upper()
+
+        #Create the data
+        template_data = {
+            "integrator": self,
+            "primary_header_include": primary_header_include,
+            "include_guard": include_guard,
+            "ranlux_template": str(ranlux_template)
+        }
+
+        #Load the templates and fill with data
+        header_template = Template(header_template, searchList = [template_data])
+        source_template = Template(source_template, searchList = [template_data])
+
+        #Spit out the templates.  For each we first
+        #check if the output has a 'write' method 
+        #and then call that, or we treat it as a file
+        #path.  I considered checking for 
+        #isinstance(output, io.IOBase), but this wouldn't
+        #work for a lot of things (sys.stdout, StringIO),
+        #so I'm just doing this for now.
+        if hasattr(header_output, "write"):
+            header_output.write(str(header_template))
+        else:
+            with open(header_output, "w") as f:
+                f.write(str(header_template))
+        if hasattr(source_output, "write"):
+            source_output.write(str(source_template))
+        else:
+            with open(source_output, "w") as f:
+                f.write(str(source_template))

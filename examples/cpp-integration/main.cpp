@@ -9,18 +9,18 @@
 
 //GSL integration includes
 #ifdef HAVE_GSL
-#include "unit_cylinder_plain_integrator.h"
-#include "random_walk_plain_integrator.h"
-#include "unit_cylinder_miser_integrator.h"
-#include "random_walk_miser_integrator.h"
-#include "unit_cylinder_vegas_integrator.h"
-#include "random_walk_vegas_integrator.h"
+#include "unit_cylinder_gsl_plain_integrator.h"
+#include "random_walk_gsl_plain_integrator.h"
+#include "unit_cylinder_gsl_miser_integrator.h"
+#include "random_walk_gsl_miser_integrator.h"
+#include "unit_cylinder_gsl_vegas_integrator.h"
+#include "random_walk_gsl_vegas_integrator.h"
 #endif
 
-#ifdef HAVE_OPENCL
 //OpenCL integration includes
-// #include "unit_cylinder_opencl_integrator.h"
-// #include "random_walk_opencl_integrator.h"
+#ifdef HAVE_OPENCL
+#include "unit_cylinder_opencl_integrator.h"
+#include "random_walk_opencl_integrator.h"
 #endif
 
 bool diff_timevals(struct timeval *result, 
@@ -102,14 +102,24 @@ void run_random_walk_integrator(const char *name)
 
 int main()
 {
+    //Run the unit cylinder integrations
     #ifdef HAVE_GSL
-    run_unit_cylinder_integrator<unit_cylinder_plain_integrator>("GSL Plain Unit Cylinder");
-    run_unit_cylinder_integrator<unit_cylinder_miser_integrator>("GSL Miser Unit Cylinder");
-    run_unit_cylinder_integrator<unit_cylinder_vegas_integrator>("GSL Vegas Unit Cylinder");
+    run_unit_cylinder_integrator<unit_cylinder_gsl_plain_integrator>("GSL Plain Unit Cylinder");
+    run_unit_cylinder_integrator<unit_cylinder_gsl_miser_integrator>("GSL Miser Unit Cylinder");
+    run_unit_cylinder_integrator<unit_cylinder_gsl_vegas_integrator>("GSL Vegas Unit Cylinder");
+    #endif
+    #ifdef HAVE_OPENCL
+    run_unit_cylinder_integrator<unit_cylinder_opencl_integrator>("OpenCL Unit Cylinder");
+    #endif
 
-    run_random_walk_integrator<random_walk_plain_integrator>("GSL Plain Random Walk");
-    run_random_walk_integrator<random_walk_miser_integrator>("GSL Miser Random Walk");
-    run_random_walk_integrator<random_walk_vegas_integrator>("GSL Vegas Random Walk");
+    //Run the random walk integrations
+    #ifdef HAVE_GSL
+    run_random_walk_integrator<random_walk_gsl_plain_integrator>("GSL Plain Random Walk");
+    run_random_walk_integrator<random_walk_gsl_miser_integrator>("GSL Miser Random Walk");
+    run_random_walk_integrator<random_walk_gsl_vegas_integrator>("GSL Vegas Random Walk");
+    #endif
+    #ifdef HAVE_OPENCL
+    run_random_walk_integrator<random_walk_opencl_integrator>("OpenCL Random Walk");
     #endif
 
     return 0;
