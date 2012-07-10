@@ -1,10 +1,10 @@
-        gsl_monte_miser_state *s = gsl_monte_miser_alloc($integral.n_dimensions);
+        gsl_monte_miser_state *s = gsl_monte_miser_alloc($integrator.n_dimensions);
         gsl_monte_miser_integrate(&G, 
                                   lower_bounds, 
                                   upper_bounds, 
-                                  $integral.n_dimensions, 
+                                  $integrator.n_dimensions, 
                                   n_calls, 
-                                  r, 
+                                  _random_number_generator, 
                                   s, 
                                   &result, 
                                   &_error);

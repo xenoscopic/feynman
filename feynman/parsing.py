@@ -104,7 +104,7 @@ class CFunctionDeclaration(object):
         return self.__text
 
     @property
-    def signature(self):
+    def argument_signature(self):
         #Do the argument formatting
         arg_format_list = []
         arg_format_tuple = ()
@@ -118,8 +118,12 @@ class CFunctionDeclaration(object):
                 arg_format_list.append("%s")
         arg_format_string = ", ".join(arg_format_list)
 
-        fmt = "%s %s(" + arg_format_string + ")"
-        return fmt % ((self.__return_type, self.__name) + arg_format_tuple)
+        #Compute the result
+        return arg_format_string % arg_format_tuple
+
+    @property
+    def signature(self):
+        return "%s %s(%s)" % (self.__return_type, self.__name, self.argument_signature)
 
     def add_include_dependency(self, dependency):
         if not isinstance(dependency, basestring):

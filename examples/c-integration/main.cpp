@@ -49,11 +49,13 @@ bool diff_timevals(struct timeval *result,
     return end->tv_sec < start->tv_sec;
 }
 
-void run_unit_cylinder_integral(
-    const char *name,
-    float (*integral)(float, float, float, float, float *)
-    )
+template <typename T>
+void run_unit_cylinder_integrator(const char *name)
 {
+    //Create the integrator
+    T integral;
+
+    //Run the test
     printf("Running %s:\n", name);
     float result, error;
     struct timeval start, stop, diff;
@@ -72,11 +74,13 @@ void run_unit_cylinder_integral(
            fabs(result - M_PI)/error);
 }
 
-void run_random_walk_integral(
-    const char *name,
-    double (*integral)(float, float, float, float, float, float, double *)
-    )
+template <typename T>
+void run_random_walk_integrator(const char *name)
 {
+    //Create the integrator
+    T integral;
+
+    //Run the test
     printf("Running %s:\n", name);
     const double exact = 1.3932039296856768591842462603255;
     double result, error;
@@ -99,18 +103,13 @@ void run_random_walk_integral(
 int main()
 {
     #ifdef HAVE_GSL
-    run_unit_cylinder_integral("GSL Plain Unit Cylinder", 
-                               &plain_integrate_unit_cylinder);
-    run_random_walk_integral("GSL Plain Random Walk", 
-                             &plain_integrate_random_walk);
-    run_unit_cylinder_integral("GSL Miser Unit Cylinder", 
-                               &miser_integrate_unit_cylinder);
-    run_random_walk_integral("GSL Miser Random Walk", 
-                             &miser_integrate_random_walk);
-    run_unit_cylinder_integral("GSL Vegas Unit Cylinder", 
-                               &vegas_integrate_unit_cylinder);
-    run_random_walk_integral("GSL Vegas Random Walk", 
-                             &vegas_integrate_random_walk);
+    run_unit_cylinder_integrator<plain_integrate_unit_cylinder>("GSL Plain Unit Cylinder");
+    run_unit_cylinder_integrator<miser_integrate_unit_cylinder>("GSL Miser Unit Cylinder");
+    run_unit_cylinder_integrator<vegas_integrate_unit_cylinder>("GSL Vegas Unit Cylinder");
+
+    run_random_walk_integrator<plain_integrate_random_walk>("GSL Plain Random Walk");
+    run_random_walk_integrator<miser_integrate_random_walk>("GSL Miser Random Walk");
+    run_random_walk_integrator<vegas_integrate_random_walk>("GSL Vegas Random Walk");
     #endif
 
     return 0;

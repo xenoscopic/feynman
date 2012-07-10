@@ -35,7 +35,7 @@ ENDIF(OPENCL_FOUND)
 
 #Set the integrand paths
 SET(INTEGRAND_HEADER_PATH ${PROJECT_SOURCE_DIR}/../share/integrands.h)
-SET(INTEGRAND_SOURCE_PATH ${PROJECT_SOURCE_DIR}/../share/integrands.c)
+SET(INTEGRAND_SOURCE_PATH ${PROJECT_SOURCE_DIR}/../share/integrands.cpp)
 
 #Set the integrand function names
 SET(INTEGRAND_FUNCTIONS
@@ -72,17 +72,17 @@ IF(GSL_FOUND)
         SET(FILE_PREFIX "${FILE_PREFIX}_integrate_")
 
         #Loop over each integrand function
-        FOREACH(f ${INTEGRAND_FUNCTIONS})
+        FOREACH(INTEGRAND ${INTEGRAND_FUNCTIONS})
             #Compute the header/source output path
-            SET(HEADER_OUTPUT_PATH "${HEADER_OUTPUT_DIRECTORY}/${FILE_PREFIX}${f}.h")
-            SET(SOURCE_OUTPUT_PATH "${SOURCE_OUTPUT_DIRECTORY}/${FILE_PREFIX}${f}.c")
+            SET(HEADER_OUTPUT_PATH "${HEADER_OUTPUT_DIRECTORY}/${FILE_PREFIX}${INTEGRAND}.h")
+            SET(SOURCE_OUTPUT_PATH "${SOURCE_OUTPUT_DIRECTORY}/${FILE_PREFIX}${INTEGRAND}.cpp")
 
             #Compute the output function name
-            SET(OUTPUT_FUNCTION_NAME "${FILE_PREFIX}${f}")
+            SET(OUTPUT_CLASS_NAME "${FILE_PREFIX}${INTEGRAND}")
 
             #Create the command
             ADD_CUSTOM_COMMAND(OUTPUT ${HEADER_OUTPUT_PATH} ${SOURCE_OUTPUT_PATH}
-                               COMMAND ${FEYNMAN_SOURCE_PATH}/genint.py --integrand-file ${INTEGRAND_HEADER_PATH} --integrand-name ${f} --dependencies integrands.h --header-output-path ${HEADER_OUTPUT_PATH} --source-output-path ${SOURCE_OUTPUT_PATH} --output-integral-name ${OUTPUT_FUNCTION_NAME} --backend ${t}
+                               COMMAND ${FEYNMAN_SOURCE_PATH}/genint.py --integrand-file ${INTEGRAND_HEADER_PATH} --integrand-name ${INTEGRAND} --dependencies integrands.h --header-output-path ${HEADER_OUTPUT_PATH} --source-output-path ${SOURCE_OUTPUT_PATH} --integrator-name ${OUTPUT_CLASS_NAME} --backend ${t}
                                VERBATIM)
             
             #Record the target and output files
@@ -92,7 +92,7 @@ IF(GSL_FOUND)
             SET(INTEGRATOR_SOURCES
                 ${INTEGRATOR_SOURCES}
                 ${SOURCE_OUTPUT_PATH})
-        ENDFOREACH(f)
+        ENDFOREACH(INTEGRAND)
     ENDFOREACH(t)
 ENDIF(GSL_FOUND)
 
@@ -100,10 +100,19 @@ ENDIF(GSL_FOUND)
 ADD_CUSTOM_TARGET(INTEGRATOR_CODE_TARGET
                   DEPENDS ${INTEGRATOR_HEADERS} ${INTEGRATOR_SOURCES})
 
+#Add the integrand library
+ADD_LIBRARY(integrands SHARED ${INTEGRAND_SOURCE_PATH})
+
+#Add the integrator library
+ADD_LIBRARY(integrators SHARED ${INTEGRATOR_SOURCES})
+ADD_DEPENDENCIES(integrators INTEGRATOR_CODE_TARGET)
+
 #Add main executable
-ADD_EXECUTABLE(integrate main.c ${INTEGRAND_SOURCE_PATH} ${INTEGRATOR_SOURCES})
-ADD_DEPENDENCIES(integrate INTEGRATOR_CODE_TARGET)
+ADD_EXECUTABLE(integrate main.cpp)
 
 #Set up linking
-TARGET_LINK_LIBRARIES(integrate 
+TARGET_LINK_LIBRARIES(integrators
+                      integrands
                       ${LINK_LIBRARIES})
+TARGET_LINK_LIBRARIES(integrate 
+                      integrators)

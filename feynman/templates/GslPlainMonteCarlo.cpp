@@ -1,10 +1,10 @@
-        gsl_monte_plain_state *s = gsl_monte_plain_alloc($integral.n_dimensions);
+        gsl_monte_plain_state *s = gsl_monte_plain_alloc($integrator.n_dimensions);
         gsl_monte_plain_integrate(&G, 
                                   lower_bounds, 
                                   upper_bounds, 
-                                  $integral.n_dimensions, 
+                                  $integrator.n_dimensions, 
                                   n_calls, 
-                                  r, 
+                                  _random_number_generator, 
                                   s, 
                                   &result, 
                                   &_error);

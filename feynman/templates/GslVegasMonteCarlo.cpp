@@ -1,11 +1,11 @@
         //Do an initial warm-up
-        gsl_monte_vegas_state *s = gsl_monte_vegas_alloc($integral.n_dimensions);
+        gsl_monte_vegas_state *s = gsl_monte_vegas_alloc($integrator.n_dimensions);
         gsl_monte_vegas_integrate(&G, 
                                   lower_bounds, 
                                   upper_bounds, 
-                                  $integral.n_dimensions, 
+                                  $integrator.n_dimensions, 
                                   10000, 
-                                  r, 
+                                  _random_number_generator, 
                                   s,
                                   &result,
                                   &_error);
@@ -15,9 +15,9 @@
             gsl_monte_vegas_integrate(&G, 
                                       lower_bounds, 
                                       upper_bounds, 
-                                      $integral.n_dimensions, 
+                                      $integrator.n_dimensions, 
                                       n_calls/5, 
-                                      r, 
+                                      _random_number_generator, 
                                       s,
                                       &result, 
                                       &_error);

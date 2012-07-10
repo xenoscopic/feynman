@@ -2,14 +2,14 @@
 
 #System modules
 import sys
+import os
 
 #Argument parsing modules
 import argparse
 
 #Feynman modules
 from feynman.parsing import CFile
-from feynman.integration import FunctionIntegral, \
-                                GslMonteCarloFunctionIntegrator, \
+from feynman.integration import GslMonteCarloFunctionIntegrator, \
                                 OpenClMonteCarloFunctionIntegrator, \
                                 GSL_MONTE_CARLO_PLAIN, \
                                 GSL_MONTE_CARLO_MISER, \
@@ -75,15 +75,16 @@ def parse_arguments():
                         metavar = "SOURCE_PATH",
                         help = "The specific output path of the source.  This will " \
                                "override any header path computed from output-file-base.")
-    parser.add_argument("-O",
-                        "--output-integral-name",
-                        dest = "output_integral_name",
-                        required = True,
-                        metavar = "FUNCTION",
-                        help = "The name for the integral function in the output file.")
     parser.add_argument("-N",
-                        "--header-include-name",
-                        dest = "header_include_name",
+                        "--integrator-name",
+                        dest = "integrator_name",
+                        required = False,
+                        default = None,
+                        metavar = "FUNCTION",
+                        help = "The name for the integrator class in the output file.")
+    parser.add_argument("-P",
+                        "--primary-header-include",
+                        dest = "primary_header_include",
                         required = False,
                         default = None,
                         metavar = "FILE",
@@ -140,17 +141,11 @@ if __name__ == "__main__":
         print("Integrand signature:")
         print("\t%s" % integrand.signature)
 
-    #Create an integral
-    integral = FunctionIntegral(integrand, args.output_integral_name)
-    if args.verbose:
-        print("Integral signature:")
-        print("\t%s" % integral.signature)
-
     #Add file dependencies
     for dependency in args.dependencies:
         if args.verbose:
             print("Adding dependency for \"%s\"" % dependency)
-        integral.add_include_dependency(dependency)
+        integrand.add_include_dependency(dependency)
 
     #Create the correct code generator
     if args.backend not in ["gsl-plain", 
@@ -169,11 +164,15 @@ if __name__ == "__main__":
             gsl_type = GSL_MONTE_CARLO_MISER
         elif args.backend.endswith("vegas"):
             gsl_type = GSL_MONTE_CARLO_VEGAS
-        integrator = GslMonteCarloFunctionIntegrator(integral, 
-                                                     header_include_name = args.header_include_name,
+        integrator = GslMonteCarloFunctionIntegrator(integrand, 
+                                                     args.integrator_name,
                                                      gsl_monte_carlo_type = gsl_type)
     else:
-        integrator = OpenClMonteCarloFunctionIntegrator(integral)
+        integrator = OpenClMonteCarloFunctionIntegrator(integrand,
+                                                        args.integrator_name)
+    if args.verbose:
+        print("Integral signature:")
+        print("\t%s" % integrator.evaluation_function.signature)
 
     #Compute output paths
     if args.header_output_path != None:
@@ -196,7 +195,17 @@ if __name__ == "__main__":
         print("Header output path: %s" % output_header)
         print("Source output path: %s" % output_source)
 
+    #Create intermediate directories
+    header_dir = os.path.dirname(output_header)
+    source_dir = os.path.dirname(output_source)
+    if not os.path.isdir(header_dir):
+        os.makedirs(header_dir)
+    if not os.path.isdir(source_dir):
+        os.makedirs(source_dir)
+
     #Generate the code!
-    integrator.generate_code(output_header, output_source)
+    integrator.generate_code(output_header, 
+                             output_source,
+                             primary_header_include = args.primary_header_include)
     if args.verbose:
         print("Code successfully generated!")

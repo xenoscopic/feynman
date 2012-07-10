@@ -6,27 +6,33 @@ from os.path import basename
 
 #Feynman modules
 from .parsing import CFunctionDeclaration
-from .common import validate_code_string
+from .common import validate_code_string, underscore_to_camel_case
 
 #Cheetah modules
 from Cheetah.Template import Template
 
-class FunctionIntegral(CFunctionDeclaration):
-    def __init__(self, integrand, integral_name = None):
+class FunctionIntegrator(object):
+    def __init__(self, integrand, name = None):
         #Validate the integrand
         if not isinstance(integrand, CFunctionDeclaration):
-            raise TypeError("The integrand must be a function declaration.")
-
-        #Store the integrand
+            raise TypeError("The integrand must be a CFunctionDeclaration.")
         self.__integrand = integrand
 
-        #Compute what the new function will be. If the caller has provided 
-        #a name, validate it, if not, just do some implementation-defined 
-        #name mangling.
-        if integral_name:
-            validate_code_string(integral_name)
+        #Validate the integrator name, if provided,
+        #otherwise, create one based on the integrand
+        #name
+        if name != None:
+            validate_code_string(name)
         else:
-            integral_name = "%s_integral" % integrand.name
+            name = underscore_to_camel_case(integrand.name) + "Integrator"
+        self.__name = name
+
+        #Calculate the number of dimensions
+        self.__n_dimensions = len(integrand.argument_types)
+
+        #Create a function declaration for the evaluation
+        #method
+        evaluation_function_name = "evaluate"
 
         #Generate argument types.  We create upper and lower bounds
         #for each argument in the original integrand.  We use this
@@ -34,75 +40,56 @@ class FunctionIntegral(CFunctionDeclaration):
         #   (1, 2, 3) -> (1, 1, 2, 2, 3, 3)
         #We also create a last argument which will return the error
         #into a pointer (if provided).
-        argument_types = integrand.argument_types
-        argument_types = tuple(chain(*zip(argument_types, argument_types)))
-        argument_types += (integrand.return_type + " *",)
+        evaluation_argument_types = integrand.argument_types
+        evaluation_argument_types = tuple(chain(*zip(evaluation_argument_types, 
+                                                     evaluation_argument_types)))
+        evaluation_argument_types += (integrand.return_type + " *",)
 
         #Generate argument names.  We suffix _min and _max to each
         #argument if it is already given, otherwise we just name it
         #var_i, where i runs from 1 to N (as in GCC).
-        argument_names = []
+        evaluation_argument_names = []
         for i, name in enumerate(integrand.argument_names):
             arg_index = i + 1
             if name == "":
-                argument_names.append("var_%i_min" % arg_index)
-                argument_names.append("var_%i_max" % arg_index)
+                evaluation_argument_names.append("var_%i_min" % arg_index)
+                evaluation_argument_names.append("var_%i_max" % arg_index)
             else:
-                argument_names.append("%s_min" % name)
-                argument_names.append("%s_max" % name)
-        argument_names = tuple(argument_names)
-        argument_names += ("error",)
+                evaluation_argument_names.append("%s_min" % name)
+                evaluation_argument_names.append("%s_max" % name)
+        evaluation_argument_names = tuple(evaluation_argument_names)
+        evaluation_argument_names += ("error",)
 
         #Generate argument default values
-        argument_default_values = ("",) * (len(argument_names) - 1) + ("NULL",)
+        evaluation_argument_default_values = ("",) * (len(evaluation_argument_names) - 1) + ("NULL",)
 
         #Initialize the super-class
-        super(FunctionIntegral, self).__init__(integral_name, 
-                                               integrand.return_type,
-                                               argument_types,
-                                               argument_names,
-                                               argument_default_values)
+        self.__evaluation_function = CFunctionDeclaration(evaluation_function_name, 
+                                                          integrand.return_type,
+                                                          evaluation_argument_types,
+                                                          evaluation_argument_names,
+                                                          evaluation_argument_default_values)
 
     @property
     def integrand(self):
         return self.__integrand
 
     @property
-    def fix_parameter(self, variable_name_or_index, value):
-        #TODO!
-        pass
-
-    @property
-    def transform_variable(self, variable_name_or_index):
-        #TODO!
-        pass
+    def name(self):
+        return self.__name
 
     @property
     def n_dimensions(self):
-        #TODO: Implement corrections from variable transformations
-        return len(self.argument_types) / 2
-
-class FunctionIntegrator(object):
-    def __init__(self, integral, header_include_name = None):
-        #Validate the integral
-        if not isinstance(integral, FunctionIntegral):
-            raise TypeError("The integral must be a FunctionIntegral.")
-        self.__integral = integral
-
-        #Validate the file name
-        if header_include_name != None:
-            validate_code_string(header_include_name)
-        self.__header_include_name = header_include_name
+        return self.__n_dimensions
 
     @property
-    def integral(self):
-        return self.__integral
+    def evaluation_function(self):
+        return self.__evaluation_function
 
-    @property
-    def header_include_name(self):
-        return self.__header_include_name
-
-    def generate_code(self, header_output = sys.stdout, source_output = sys.stdout):
+    def generate_code(self, 
+                      header_output = sys.stdout, 
+                      source_output = sys.stdout,
+                      primary_header_include = None):
         raise RuntimeError("FunctionIntegrator is an abstract base class.  " \
                            "You must call generate_code from one of its " \
                            "concrete subclasses.")
@@ -116,12 +103,12 @@ _ALL_GSL_MONTE_CARLO_TYPES = [
     GSL_MONTE_CARLO_MISER,
     GSL_MONTE_CARLO_VEGAS
 ]
-_GSL_BASE_MONTE_CARLO_HEADER = "gsl_base_monte_carlo.h"
-_GSL_BASE_MONTE_CARLO_SOURCE = "gsl_base_monte_carlo.c"
+_GSL_BASE_MONTE_CARLO_HEADER = "GslBaseMonteCarlo.h"
+_GSL_BASE_MONTE_CARLO_SOURCE = "GslBaseMonteCarlo.cpp"
 _GSL_MONTE_CARLO_TEMPLATES = {
-    GSL_MONTE_CARLO_PLAIN: "gsl_plain_monte_carlo.c",
-    GSL_MONTE_CARLO_MISER: "gsl_miser_monte_carlo.c",
-    GSL_MONTE_CARLO_VEGAS: "gsl_vegas_monte_carlo.c"
+    GSL_MONTE_CARLO_PLAIN: "GslPlainMonteCarlo.cpp",
+    GSL_MONTE_CARLO_MISER: "GslMiserMonteCarlo.cpp",
+    GSL_MONTE_CARLO_VEGAS: "GslVegasMonteCarlo.cpp"
 }
 _GSL_MONTE_CARLO_INCLUDES = {
     GSL_MONTE_CARLO_PLAIN: "gsl/gsl_monte_plain.h",
@@ -133,7 +120,7 @@ _MONTE_CARLO_TEMPLATE_PATH = "templates"
 class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
     def __init__(self, 
                  integral, 
-                 header_include_name = None, 
+                 name = None, 
                  gsl_monte_carlo_type = GSL_MONTE_CARLO_PLAIN,
                  n_calls = 500000):
         #Validate the GSL Monte Carlo type
@@ -147,7 +134,7 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
         self.__n_calls = n_calls
 
         #Call the base constructor
-        super(GslMonteCarloFunctionIntegrator, self).__init__(integral, header_include_name)
+        super(GslMonteCarloFunctionIntegrator, self).__init__(integral, name)
 
     @property
     def gsl_monte_carlo_type(self):
@@ -159,10 +146,11 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
 
     def generate_code(self, 
                       header_output = sys.stdout, 
-                      source_output = sys.stdout):
+                      source_output = sys.stdout,
+                      primary_header_include = None):
         #Grab the template names
-        integration_template_name = _GSL_MONTE_CARLO_TEMPLATES[self.__gsl_monte_carlo_type]
-        integration_header_name = _GSL_MONTE_CARLO_INCLUDES[self.__gsl_monte_carlo_type]
+        gsl_method_template = _GSL_MONTE_CARLO_TEMPLATES[self.__gsl_monte_carlo_type]
+        gsl_method_header = _GSL_MONTE_CARLO_INCLUDES[self.__gsl_monte_carlo_type]
 
         #Compute template paths using the pkg_resources API.
         #NOTE: We use "/" as the path separator here, this
@@ -181,32 +169,37 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
                                           _GSL_BASE_MONTE_CARLO_SOURCE
                                           ])
                                          )
-        integration_template = resource_string(__name__, 
-                                               "/".join([
-                                               _MONTE_CARLO_TEMPLATE_PATH, 
-                                               integration_template_name
-                                               ])
-                                               )
+        method_template = resource_string(__name__, 
+                                          "/".join([
+                                          _MONTE_CARLO_TEMPLATE_PATH, 
+                                          gsl_method_template
+                                          ])
+                                         )
 
-        #Compute what the include header should be
-        if self.header_include_name:
-            header_include_name = self.header_include_name
-        elif isinstance(header_output, basestring):
-            header_include_name = basename(header_output)
-        else:
-            header_include_name = "Integral.h"
+        #Compute what the primary include header and include
+        #guard should be.
+        if not primary_header_include:
+            if isinstance(header_output, basestring):
+                primary_header_include = basename(header_output)
+            else:
+                primary_header_include = "Integral.h"
+        include_guard = primary_header_include.replace("/", "_") \
+                                              .replace("\\", "_") \
+                                              .replace(".", "_") \
+                                              .upper()
 
         #Create the data
         template_data = {
-            "integral": self.integral,
-            "header_include_name": header_include_name,
-            "integration_header_name": integration_header_name,
+            "integrator": self,
+            "primary_header_include": primary_header_include,
+            "include_guard": include_guard,
+            "gsl_method_header": gsl_method_header,
             "n_calls": self.n_calls
         }
 
         #Load the templates and fill with data
-        integration_template = Template(integration_template, searchList = [template_data])
-        template_data["integration_template"] = str(integration_template)
+        method_template = Template(method_template, searchList = [template_data])
+        template_data["method_template"] = str(method_template)
         header_template = Template(header_template, searchList = [template_data])
         source_template = Template(source_template, searchList = [template_data])
 

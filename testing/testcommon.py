@@ -2,7 +2,7 @@
 import common
 
 #Feynman modules
-from feynman.common import validate_code_string
+from feynman.common import validate_code_string, underscore_to_camel_case
 
 def test_code_string_validation():
     string_exception_pairs = (
@@ -28,3 +28,14 @@ def test_code_string_validation():
         except exception:
             thrown = True
         assert(thrown)
+
+def test_underscore_to_camel_case():
+    test_value_pairs = (
+        ("_cern_physics", "CernPhysics"),
+        ("cern_physics", "CernPhysics"),
+        ("cern_physics_", "CernPhysics"),
+        ("_cern__physics_", "Cern_Physics")
+    )
+
+    for test, value in test_value_pairs:
+        assert(underscore_to_camel_case(test) == value)
