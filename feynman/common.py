@@ -36,3 +36,15 @@ def underscore_to_camel_case(s):
         s = s[:1].capitalize() + s[1:]
         
     return s
+
+def c_string_literal_with_c_code(s):
+    #Normalize line splits
+    s = s.replace("\r\n", "\n").replace("\r", "\n")
+
+    #Split up lines
+    lines = s.split("\n")
+
+    #Create the result
+    return "\n".join(["\"%s\" \\" % l.encode("string_escape").replace("\"", "\\\"") for l in lines]).strip(" \\")
+
+    

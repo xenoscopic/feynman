@@ -2,7 +2,9 @@
 import common
 
 #Feynman modules
-from feynman.common import validate_code_string, underscore_to_camel_case
+from feynman.common import validate_code_string, \
+                           underscore_to_camel_case, \
+                           c_string_literal_with_c_code
 
 def test_code_string_validation():
     string_exception_pairs = (
@@ -39,3 +41,19 @@ def test_underscore_to_camel_case():
 
     for test, value in test_value_pairs:
         assert(underscore_to_camel_case(test) == value)
+
+def test_c_string_literal_with_c_code():
+    test_value_pairs = (
+        ("\t", '"\\t"'),
+        ("\n", '"" \\\n""'),
+        ("\"", '"\\""'),
+        ("\\", '"\\\\"'),
+        ("\r\n", '"" \\\n""'),
+        ("\r", '"" \\\n""'),
+        ("a", '"a"'),
+        ("#include <test>", '"#include <test>"'),
+        ('#include "test.h"', '"#include \\\"test.h\\\""'),
+    )
+
+    for test, value in test_value_pairs:
+        assert(c_string_literal_with_c_code(test) == value)

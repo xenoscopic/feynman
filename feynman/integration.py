@@ -6,7 +6,9 @@ from os.path import basename
 
 #Feynman modules
 from .parsing import CFunctionDeclaration
-from .common import validate_code_string, underscore_to_camel_case
+from .common import validate_code_string, \
+                    underscore_to_camel_case, \
+                    c_string_literal_with_c_code
 
 #Cheetah modules
 from Cheetah.Template import Template
@@ -272,7 +274,8 @@ class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
             "integrator": self,
             "primary_header_include": primary_header_include,
             "include_guard": include_guard,
-            "ranlux_template": str(ranlux_template)
+            "ranlux_template": c_string_literal_with_c_code(ranlux_template),
+            "program_template": c_string_literal_with_c_code("code")
         }
 
         #Load the templates and fill with data

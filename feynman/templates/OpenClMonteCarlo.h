@@ -1,9 +1,6 @@
 \#ifndef $include_guard
 \#define $include_guard
 
-//Standard includes
-\#include <string>
-
 //OpenCL includes
 \#ifdef __APPLE__
 \#include <OpenCL/opencl.h>
@@ -20,8 +17,8 @@ class $integrator.name
         $integrator.evaluation_function.return_type operator()($integrator.evaluation_function.argument_signature);
 
     private:
-        const std::string _program_source;
-        const std::string _kernel_name;
+        static const char * _ranlux_source;
+        static const char * _program_source;
         cl_device_id _device_id;
         cl_context _context;
         cl_command_queue _command_queue;
