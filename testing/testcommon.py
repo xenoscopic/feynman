@@ -53,6 +53,7 @@ def test_c_string_literal_with_c_code():
         ("a", '"a"'),
         ("#include <test>", '"#include <test>"'),
         ('#include "test.h"', '"#include \\\"test.h\\\""'),
+        ("5.2", '"5.2"')
     )
 
     for test, value in test_value_pairs:
