@@ -68,17 +68,17 @@ IF(GSL_FOUND)
     #Loop over each integration type
     FOREACH(t ${GSL_INTEGRATION_TYPES})
         #Compute the file prefix
-        STRING(REPLACE "gsl-" "" FILE_PREFIX ${t})
-        SET(FILE_PREFIX "${FILE_PREFIX}_integrate_")
+        STRING(REPLACE "gsl-" "" FILE_SUFFIX ${t})
+        SET(FILE_SUFFIX "_${FILE_SUFFIX}_integrator")
 
         #Loop over each integrand function
         FOREACH(INTEGRAND ${INTEGRAND_FUNCTIONS})
             #Compute the header/source output path
-            SET(HEADER_OUTPUT_PATH "${HEADER_OUTPUT_DIRECTORY}/${FILE_PREFIX}${INTEGRAND}.h")
-            SET(SOURCE_OUTPUT_PATH "${SOURCE_OUTPUT_DIRECTORY}/${FILE_PREFIX}${INTEGRAND}.cpp")
+            SET(HEADER_OUTPUT_PATH "${HEADER_OUTPUT_DIRECTORY}/${INTEGRAND}${FILE_SUFFIX}.h")
+            SET(SOURCE_OUTPUT_PATH "${SOURCE_OUTPUT_DIRECTORY}/${INTEGRAND}${FILE_SUFFIX}.cpp")
 
             #Compute the output function name
-            SET(OUTPUT_CLASS_NAME "${FILE_PREFIX}${INTEGRAND}")
+            SET(OUTPUT_CLASS_NAME "${INTEGRAND}${FILE_SUFFIX}")
 
             #Create the command
             ADD_CUSTOM_COMMAND(OUTPUT ${HEADER_OUTPUT_PATH} ${SOURCE_OUTPUT_PATH}

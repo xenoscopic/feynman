@@ -3,6 +3,6 @@ externals*
 *.DS_Store*
 *._*
 *.sublime-workspace
-examples/c-integration/build*
-examples/c-integration/include*
-examples/c-integration/src*
+examples/cpp-integration/build*
+examples/cpp-integration/include*
+examples/cpp-integration/src*

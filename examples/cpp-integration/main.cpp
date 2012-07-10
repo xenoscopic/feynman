@@ -9,18 +9,18 @@
 
 //GSL integration includes
 #ifdef HAVE_GSL
-#include "plain_integrate_unit_cylinder.h"
-#include "plain_integrate_random_walk.h"
-#include "miser_integrate_unit_cylinder.h"
-#include "miser_integrate_random_walk.h"
-#include "vegas_integrate_unit_cylinder.h"
-#include "vegas_integrate_random_walk.h"
+#include "unit_cylinder_plain_integrator.h"
+#include "random_walk_plain_integrator.h"
+#include "unit_cylinder_miser_integrator.h"
+#include "random_walk_miser_integrator.h"
+#include "unit_cylinder_vegas_integrator.h"
+#include "random_walk_vegas_integrator.h"
 #endif
 
 #ifdef HAVE_OPENCL
 //OpenCL integration includes
-// #include "opencl_integrate_unit_cylinder.h"
-// #include "opencl_integrate_random_walk.h"
+// #include "unit_cylinder_opencl_integrator.h"
+// #include "random_walk_opencl_integrator.h"
 #endif
 
 bool diff_timevals(struct timeval *result, 
@@ -103,13 +103,13 @@ void run_random_walk_integrator(const char *name)
 int main()
 {
     #ifdef HAVE_GSL
-    run_unit_cylinder_integrator<plain_integrate_unit_cylinder>("GSL Plain Unit Cylinder");
-    run_unit_cylinder_integrator<miser_integrate_unit_cylinder>("GSL Miser Unit Cylinder");
-    run_unit_cylinder_integrator<vegas_integrate_unit_cylinder>("GSL Vegas Unit Cylinder");
+    run_unit_cylinder_integrator<unit_cylinder_plain_integrator>("GSL Plain Unit Cylinder");
+    run_unit_cylinder_integrator<unit_cylinder_miser_integrator>("GSL Miser Unit Cylinder");
+    run_unit_cylinder_integrator<unit_cylinder_vegas_integrator>("GSL Vegas Unit Cylinder");
 
-    run_random_walk_integrator<plain_integrate_random_walk>("GSL Plain Random Walk");
-    run_random_walk_integrator<miser_integrate_random_walk>("GSL Miser Random Walk");
-    run_random_walk_integrator<vegas_integrate_random_walk>("GSL Vegas Random Walk");
+    run_random_walk_integrator<random_walk_plain_integrator>("GSL Plain Random Walk");
+    run_random_walk_integrator<random_walk_miser_integrator>("GSL Miser Random Walk");
+    run_random_walk_integrator<random_walk_vegas_integrator>("GSL Vegas Random Walk");
     #endif
 
     return 0;
