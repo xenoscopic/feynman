@@ -22,6 +22,7 @@ _device_id(NULL),
 _context(NULL),
 _command_queue(NULL),
 _program(NULL),
+_initialization_kernel(NULL),
 _plain_kernel(NULL),
 _miser_kernel(NULL),
 _vegas_kernel(NULL),
@@ -75,6 +76,7 @@ _valid(true)
     const char *strings[] = {
         $integrator.name::_fixes_source,
         $integrator.name::_ranlux_source,
+        $integrator.name::_initialization_source,
         $integrator.name::_integrand_source,
         $integrator.name::_plain_source,
         $integrator.name::_miser_source,
@@ -119,6 +121,13 @@ _valid(true)
     }
 
     //Grab out the integration kernels
+    _initialization_kernel = clCreateKernel(_program, "random_initialize", &error);
+    if(!_initialization_kernel || error != CL_SUCCESS)
+    {
+        printf("ERROR: Unable to create initialization kernel.\n");
+        _valid = false;
+        return;
+    }
     _plain_kernel = clCreateKernel(_program, "plain_integrate", &error);
     if(!_plain_kernel || error != CL_SUCCESS)
     {
@@ -142,7 +151,7 @@ _valid(true)
     }
 
     //TODO: Run random number initialization kernels
-    
+
 }
 
 ${integrator.name}::~${integrator.name}()
@@ -150,6 +159,7 @@ ${integrator.name}::~${integrator.name}()
     clReleaseKernel(_vegas_kernel);
     clReleaseKernel(_miser_kernel);
     clReleaseKernel(_plain_kernel);
+    clReleaseKernel(_initialization_kernel);
     clReleaseProgram(_program);
     clReleaseCommandQueue(_command_queue);
     clReleaseContext(_context);
@@ -191,6 +201,8 @@ const char * ${integrator.name}::_fixes_source =
 $fixes_template;
 const char * ${integrator.name}::_ranlux_source = 
 $ranlux_template;
+const char * ${integrator.name}::_initialization_source = 
+$initialization_template;
 const char * ${integrator.name}::_integrand_source = 
 $integrand_template;
 const char * ${integrator.name}::_plain_source = 

@@ -36,12 +36,17 @@ class $integrator.name
         cl_context _context;
         cl_command_queue _command_queue;
         cl_program _program;
+        cl_kernel _initialization_kernel;
         cl_kernel _plain_kernel;
         cl_kernel _miser_kernel;
         cl_kernel _vegas_kernel;
+        int _work_group_count;
+        int _work_group_size;
+        cl_mem _ranluxcl_states; //On-device buffer
         bool _valid;
         static const char * _fixes_source;
         static const char * _ranlux_source;
+        static const char * _initialization_source;
         static const char * _integrand_source;
         static const char * _plain_source;
         static const char * _miser_source;

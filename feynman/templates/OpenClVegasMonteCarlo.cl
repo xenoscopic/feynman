@@ -1,7 +1,7 @@
 __kernel void vegas_integrate(
     $integrator.evaluation_function.argument_signature,
     int points_per_worker,
-    __global ranluxcl_state_t *ranluxclstates,
+    __global ranluxcl_state_t *ranluxcl_states,
     __global $integrator.evaluation_function.return_type *result
     )
 {
@@ -14,7 +14,7 @@ __kernel void vegas_integrate(
 
     //Download the random number generator
     ranluxcl_state_t ranluxclstate;
-    ranluxcl_download_seed(&ranluxclstate, ranluxclstates);
+    ranluxcl_download_seed(&ranluxclstate, ranluxcl_states);
 
     //Loop over and evaluate random phase-space points.
     for(int i = 0; i < points_per_worker; i++)
@@ -26,7 +26,7 @@ __kernel void vegas_integrate(
 
 
     //Upload the random number generator
-    ranluxcl_upload_seed(&ranluxclstate, ranluxclstates);
+    ranluxcl_upload_seed(&ranluxclstate, ranluxcl_states);
 
 
     //If this is the first thread, go through and sum

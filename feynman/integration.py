@@ -168,6 +168,7 @@ _OPENCL_BASE_MONTE_CARLO_HEADER = "OpenClMonteCarlo.h"
 _OPENCL_BASE_MONTE_CARLO_SOURCE = "OpenClMonteCarlo.cpp"
 _OPENCL_FIXES_SOURCE = "OpenClMonteCarloFixes.cl"
 _OPENCL_RANLUX_SOURCE = "ranluxcl.cl"
+_OPENCL_INITIALIZATION_SOURCE = "OpenClMonteCarloInitialization.cl"
 _OPENCL_MONTE_CARLO_PLAIN_SOURCE = "OpenClPlainMonteCarlo.cl"
 _OPENCL_MONTE_CARLO_MISER_SOURCE = "OpenClMiserMonteCarlo.cl"
 _OPENCL_MONTE_CARLO_VEGAS_SOURCE = "OpenClVegasMonteCarlo.cl"
@@ -207,6 +208,12 @@ class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
                                           _OPENCL_RANLUX_SOURCE
                                           ])
                                          )
+        initialization_template = resource_string(__name__, 
+                                                  "/".join([
+                                                  _OPENCL_CARLO_TEMPLATE_PATH, 
+                                                  _OPENCL_INITIALIZATION_SOURCE
+                                                  ])
+                                                 )
         plain_template = resource_string(__name__, 
                                          "/".join([
                                          _OPENCL_CARLO_TEMPLATE_PATH, 
@@ -251,6 +258,7 @@ class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
         vegas_template = str(Template(vegas_template, searchList = [template_data]))
         template_data["fixes_template"] = c_string_literal_with_c_code(fixes_template)
         template_data["ranlux_template"] = c_string_literal_with_c_code(ranlux_template)
+        template_data["initialization_template"] = c_string_literal_with_c_code(initialization_template)
         template_data["integrand_template"] = c_string_literal_with_c_code(self.integrand.text)
         template_data["plain_template"] = c_string_literal_with_c_code(plain_template)
         template_data["miser_template"] = c_string_literal_with_c_code(miser_template)
