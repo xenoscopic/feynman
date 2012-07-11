@@ -95,63 +95,15 @@ class FunctionIntegrator(object):
                            "concrete subclasses.")
 
 #Integrator types for integral code generation
-GSL_MONTE_CARLO_PLAIN = "GSL_MONTE_CARLO_PLAIN"
-GSL_MONTE_CARLO_MISER = "GSL_MONTE_CARLO_MISER"
-GSL_MONTE_CARLO_VEGAS = "GSL_MONTE_CARLO_VEGAS"
-_ALL_GSL_MONTE_CARLO_TYPES = [
-    GSL_MONTE_CARLO_PLAIN,
-    GSL_MONTE_CARLO_MISER,
-    GSL_MONTE_CARLO_VEGAS
-]
-_GSL_BASE_MONTE_CARLO_HEADER = "GslBaseMonteCarlo.h"
-_GSL_BASE_MONTE_CARLO_SOURCE = "GslBaseMonteCarlo.cpp"
-_GSL_MONTE_CARLO_TEMPLATES = {
-    GSL_MONTE_CARLO_PLAIN: "GslPlainMonteCarlo.cpp",
-    GSL_MONTE_CARLO_MISER: "GslMiserMonteCarlo.cpp",
-    GSL_MONTE_CARLO_VEGAS: "GslVegasMonteCarlo.cpp"
-}
-_GSL_MONTE_CARLO_INCLUDES = {
-    GSL_MONTE_CARLO_PLAIN: "gsl/gsl_monte_plain.h",
-    GSL_MONTE_CARLO_MISER: "gsl/gsl_monte_miser.h",
-    GSL_MONTE_CARLO_VEGAS: "gsl/gsl_monte_vegas.h"
-}
+_GSL_MONTE_CARLO_HEADER = "GslMonteCarlo.h"
+_GSL_MONTE_CARLO_SOURCE = "GslMonteCarlo.cpp"
 _GSL_MONTE_CARLO_TEMPLATE_PATH = "templates"
 
 class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
-    def __init__(self, 
-                 integral, 
-                 name = None, 
-                 gsl_monte_carlo_type = GSL_MONTE_CARLO_PLAIN,
-                 n_calls = 500000):
-        #Validate the GSL Monte Carlo type
-        if gsl_monte_carlo_type not in _ALL_GSL_MONTE_CARLO_TYPES:
-            raise ValueError("Invalid GSL Monte Carlo type specified.")
-        self.__gsl_monte_carlo_type = gsl_monte_carlo_type
-
-        #Validate the number of calls
-        if not isinstance(n_calls, int) or n_calls < 1:
-            raise TypeError("Number of calls must be an integer >= 1.")
-        self.__n_calls = n_calls
-
-        #Call the base constructor
-        super(GslMonteCarloFunctionIntegrator, self).__init__(integral, name)
-
-    @property
-    def gsl_monte_carlo_type(self):
-        return self.__gsl_monte_carlo_type
-
-    @property
-    def n_calls(self):
-        return self.__n_calls
-
     def generate_code(self, 
                       header_output = sys.stdout, 
                       source_output = sys.stdout,
                       primary_header_include = None):
-        #Grab the template names
-        gsl_method_template = _GSL_MONTE_CARLO_TEMPLATES[self.__gsl_monte_carlo_type]
-        gsl_method_header = _GSL_MONTE_CARLO_INCLUDES[self.__gsl_monte_carlo_type]
-
         #Compute template paths using the pkg_resources API.
         #NOTE: We use "/" as the path separator here, this
         #is because these are not actually file system paths,
@@ -160,19 +112,13 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
         header_template = resource_string(__name__, 
                                           "/".join([
                                           _GSL_MONTE_CARLO_TEMPLATE_PATH, 
-                                          _GSL_BASE_MONTE_CARLO_HEADER
+                                          _GSL_MONTE_CARLO_HEADER
                                           ])
                                          )
         source_template = resource_string(__name__, 
                                           "/".join([
                                           _GSL_MONTE_CARLO_TEMPLATE_PATH, 
-                                          _GSL_BASE_MONTE_CARLO_SOURCE
-                                          ])
-                                         )
-        method_template = resource_string(__name__, 
-                                          "/".join([
-                                          _GSL_MONTE_CARLO_TEMPLATE_PATH, 
-                                          gsl_method_template
+                                          _GSL_MONTE_CARLO_SOURCE
                                           ])
                                          )
 
@@ -192,14 +138,10 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
         template_data = {
             "integrator": self,
             "primary_header_include": primary_header_include,
-            "include_guard": include_guard,
-            "gsl_method_header": gsl_method_header,
-            "n_calls": self.n_calls
+            "include_guard": include_guard
         }
 
         #Load the templates and fill with data
-        method_template = Template(method_template, searchList = [template_data])
-        template_data["method_template"] = str(method_template)
         header_template = Template(header_template, searchList = [template_data])
         source_template = Template(source_template, searchList = [template_data])
 
@@ -222,59 +164,20 @@ class GslMonteCarloFunctionIntegrator(FunctionIntegrator):
                 f.write(str(source_template))
 
 #Integrator types for integral code generation
-OPENCL_MONTE_CARLO_PLAIN = "OPENCL_MONTE_CARLO_PLAIN"
-#OPENCL_MONTE_CARLO_MISER = "OPENCL_MONTE_CARLO_MISER"
-#OPENCL_MONTE_CARLO_VEGAS = "OPENCL_MONTE_CARLO_VEGAS"
-_ALL_OPENCL_MONTE_CARLO_TYPES = [
-    OPENCL_MONTE_CARLO_PLAIN,
-#    OPENCL_MONTE_CARLO_MISER,
-#    OPENCL_MONTE_CARLO_VEGAS
-]
 _OPENCL_BASE_MONTE_CARLO_HEADER = "OpenClMonteCarlo.h"
 _OPENCL_BASE_MONTE_CARLO_SOURCE = "OpenClMonteCarlo.cpp"
 _OPENCL_FIXES_SOURCE = "OpenClMonteCarloFixes.cl"
 _OPENCL_RANLUX_SOURCE = "ranluxcl.cl"
-_OPENCL_MONTE_CARLO_TEMPLATES = {
-    OPENCL_MONTE_CARLO_PLAIN: "OpenClPlainMonteCarlo.cl",
-#    OPENCL_MONTE_CARLO_MISER: "OpenClMiserMonteCarlo.cl",
-#    OPENCL_MONTE_CARLO_VEGAS: "OpenClVegasMonteCarlo.cl"
-}
+_OPENCL_MONTE_CARLO_PLAIN_SOURCE = "OpenClPlainMonteCarlo.cl"
+_OPENCL_MONTE_CARLO_MISER_SOURCE = "OpenClMiserMonteCarlo.cl"
+_OPENCL_MONTE_CARLO_VEGAS_SOURCE = "OpenClVegasMonteCarlo.cl"
 _OPENCL_CARLO_TEMPLATE_PATH = "templates"
 
 class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
-    def __init__(self, 
-                 integral, 
-                 name = None, 
-                 opencl_monte_carlo_type = OPENCL_MONTE_CARLO_PLAIN,
-                 n_calls = 500000):
-        #Validate the GSL Monte Carlo type
-        if opencl_monte_carlo_type not in _ALL_OPENCL_MONTE_CARLO_TYPES:
-            raise ValueError("Invalid OpenCL Monte Carlo type specified.")
-        self.__opencl_monte_carlo_type = opencl_monte_carlo_type
-
-        #Validate the number of calls
-        if not isinstance(n_calls, int) or n_calls < 1:
-            raise TypeError("Number of calls must be an integer >= 1.")
-        self.__n_calls = n_calls
-
-        #Call the base constructor
-        super(OpenClMonteCarloFunctionIntegrator, self).__init__(integral, name)
-
-    @property
-    def opencl_monte_carlo_type(self):
-        return self.__opencl_monte_carlo_type
-
-    @property
-    def n_calls(self):
-        return self.__n_calls
-
     def generate_code(self, 
                       header_output = sys.stdout, 
                       source_output = sys.stdout,
                       primary_header_include = None):
-        #Grab the template names
-        opencl_method_template = _OPENCL_MONTE_CARLO_TEMPLATES[self.__opencl_monte_carlo_type]
-        
         #Compute template paths using the pkg_resources API.
         #NOTE: We use "/" as the path separator here, this
         #is because these are not actually file system paths,
@@ -292,24 +195,36 @@ class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
                                           _OPENCL_BASE_MONTE_CARLO_SOURCE
                                           ])
                                          )
-        ranlux_template = resource_string(__name__, 
-                                          "/".join([
-                                          _OPENCL_CARLO_TEMPLATE_PATH, 
-                                          _OPENCL_RANLUX_SOURCE
-                                          ])
-                                         )
         fixes_template = resource_string(__name__, 
                                          "/".join([
                                          _OPENCL_CARLO_TEMPLATE_PATH, 
                                          _OPENCL_FIXES_SOURCE
                                          ])
                                         )
-        method_template = resource_string(__name__, 
+        ranlux_template = resource_string(__name__, 
                                           "/".join([
                                           _OPENCL_CARLO_TEMPLATE_PATH, 
-                                          opencl_method_template
+                                          _OPENCL_RANLUX_SOURCE
                                           ])
                                          )
+        plain_template = resource_string(__name__, 
+                                         "/".join([
+                                         _OPENCL_CARLO_TEMPLATE_PATH, 
+                                         _OPENCL_MONTE_CARLO_PLAIN_SOURCE
+                                         ])
+                                        )
+        miser_template = resource_string(__name__, 
+                                         "/".join([
+                                         _OPENCL_CARLO_TEMPLATE_PATH, 
+                                         _OPENCL_MONTE_CARLO_MISER_SOURCE
+                                         ])
+                                        )
+        vegas_template = resource_string(__name__, 
+                                         "/".join([
+                                         _OPENCL_CARLO_TEMPLATE_PATH, 
+                                         _OPENCL_MONTE_CARLO_VEGAS_SOURCE
+                                         ])
+                                        )
 
         #Compute what the primary include header and include
         #guard should be.
@@ -331,10 +246,15 @@ class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
         }
 
         #Load the templates and fill with data
-        method_template = str(Template(method_template, searchList = [template_data]))
+        plain_template = str(Template(plain_template, searchList = [template_data]))
+        miser_template = str(Template(miser_template, searchList = [template_data]))
+        vegas_template = str(Template(vegas_template, searchList = [template_data]))
         template_data["fixes_template"] = c_string_literal_with_c_code(fixes_template)
         template_data["ranlux_template"] = c_string_literal_with_c_code(ranlux_template)
-        template_data["program_template"] = c_string_literal_with_c_code(method_template)
+        template_data["integrand_template"] = c_string_literal_with_c_code(self.integrand.text)
+        template_data["plain_template"] = c_string_literal_with_c_code(plain_template)
+        template_data["miser_template"] = c_string_literal_with_c_code(miser_template)
+        template_data["vegas_template"] = c_string_literal_with_c_code(vegas_template)
         header_template = Template(header_template, searchList = [template_data])
         source_template = Template(source_template, searchList = [template_data])
 

@@ -60,15 +60,13 @@ INCLUDE_DIRECTORIES(${FEYNMAN_SOURCE_PATH}/share)
 IF(GSL_FOUND)
     SET(INTEGRATION_TYPES
         ${INTEGRATION_TYPES}
-        "gsl-plain"
-        "gsl-miser"
-        "gsl-vegas"
+        "gsl"
     )
 ENDIF(GSL_FOUND)
 IF(OPENCL_FOUND)
     SET(INTEGRATION_TYPES
         ${INTEGRATION_TYPES}
-        "opencl-plain"
+        "opencl"
     )
 ENDIF(OPENCL_FOUND)
 

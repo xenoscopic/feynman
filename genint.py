@@ -10,11 +10,7 @@ import argparse
 #Feynman modules
 from feynman.parsing import CFile
 from feynman.integration import GslMonteCarloFunctionIntegrator, \
-                                OpenClMonteCarloFunctionIntegrator, \
-                                GSL_MONTE_CARLO_PLAIN, \
-                                GSL_MONTE_CARLO_MISER, \
-                                GSL_MONTE_CARLO_VEGAS, \
-                                OPENCL_MONTE_CARLO_PLAIN
+                                OpenClMonteCarloFunctionIntegrator
 
 #Helper functions
 def parse_arguments():
@@ -58,7 +54,7 @@ def parse_arguments():
                         default = None,
                         metavar = "FILE",
                         help = "The base path of the output file.  This path will be " \
-                        "used to compute .h and .c output paths if they are not " \
+                        "used to compute .h and .cpp output paths if they are not " \
                         "specified manually.")
     parser.add_argument("-H",
                         "--header-output-path",
@@ -110,11 +106,11 @@ def parse_arguments():
                         default = "gsl-plain",
                         metavar = "BACKEND",
                         help = "The integrator backend to use.  Available options are " \
-                               "gsl-plain, gsl-miser, gsl-vegas, and opencl-plain.  Note " \
-                               "that while you are not required to have either GSL or " \
-                               "OpenCL on your system to generate integration code, " \
-                               "you will need the respective package available to " \
-                               "compile and execute the code.")
+                               "\"gsl\" and \"opencl\".  Note that while you are not " \
+                               "required to have either GSL or OpenCL on your system " \
+                               "to generate integration code, you will need the " \
+                               "respective package available to compile and execute " \
+                               "the code.")
 
     #Run the parser
     return parser.parse_args()
@@ -149,31 +145,18 @@ if __name__ == "__main__":
         integrand.add_include_dependency(dependency)
 
     #Create the correct code generator
-    if args.backend not in ["gsl-plain", 
-                            "gsl-miser", 
-                            "gsl-vegas", 
-                            "opencl-plain"]:
+    if args.backend not in ["gsl",  
+                            "opencl"]:
         print("Invalid backend specified: %s" % args.backend)
         sys.exit(1)
     if args.verbose:
         print("Using backend: %s" % args.backend)
-    is_gsl = args.backend.startswith("gsl")
-    if is_gsl:
-        if args.backend.endswith("plain"):
-            gsl_type = GSL_MONTE_CARLO_PLAIN
-        elif args.backend.endswith("miser"):
-            gsl_type = GSL_MONTE_CARLO_MISER
-        elif args.backend.endswith("vegas"):
-            gsl_type = GSL_MONTE_CARLO_VEGAS
+    if args.backend == "gsl":
         integrator = GslMonteCarloFunctionIntegrator(integrand, 
-                                                     args.integrator_name,
-                                                     gsl_monte_carlo_type = gsl_type)
+                                                     args.integrator_name)
     else:
-        if args.backend.endswith("plain"):
-            opencl_type = OPENCL_MONTE_CARLO_PLAIN
         integrator = OpenClMonteCarloFunctionIntegrator(integrand,
-                                                        args.integrator_name,
-                                                        opencl_monte_carlo_type = opencl_type)
+                                                        args.integrator_name)
     if args.verbose:
         print("Integral signature:")
         print("\t%s" % integrator.evaluation_function.signature)
@@ -190,7 +173,7 @@ if __name__ == "__main__":
     if args.source_output_path != None:
         output_source = args.source_output_path
     elif args.output_file_base != None:
-        output_source = args.output_file_base + ".c"
+        output_source = args.output_file_base + ".cpp"
     else:
         raise RuntimeError("Unable to compute source output path.  " \
                            "You must specify either source-output-path " \

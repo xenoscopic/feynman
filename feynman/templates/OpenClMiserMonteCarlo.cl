@@ -1,4 +1,4 @@
-__kernel void plain_integrate(
+__kernel void miser_integrate(
     $integrator.evaluation_function.argument_signature,
     int points_per_worker,
     __global ranluxcl_state_t *ranluxclstates,
