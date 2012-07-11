@@ -13,7 +13,8 @@ from feynman.integration import GslMonteCarloFunctionIntegrator, \
                                 OpenClMonteCarloFunctionIntegrator, \
                                 GSL_MONTE_CARLO_PLAIN, \
                                 GSL_MONTE_CARLO_MISER, \
-                                GSL_MONTE_CARLO_VEGAS
+                                GSL_MONTE_CARLO_VEGAS, \
+                                OPENCL_MONTE_CARLO_PLAIN
 
 #Helper functions
 def parse_arguments():
@@ -109,8 +110,8 @@ def parse_arguments():
                         default = "gsl-plain",
                         metavar = "BACKEND",
                         help = "The integrator backend to use.  Available options are " \
-                               "gsl-plain, gsl-miser, gsl-vegas, opencl.  Note that " \
-                               "while you are not required to have either GSL or " \
+                               "gsl-plain, gsl-miser, gsl-vegas, and opencl-plain.  Note " \
+                               "that while you are not required to have either GSL or " \
                                "OpenCL on your system to generate integration code, " \
                                "you will need the respective package available to " \
                                "compile and execute the code.")
@@ -151,7 +152,7 @@ if __name__ == "__main__":
     if args.backend not in ["gsl-plain", 
                             "gsl-miser", 
                             "gsl-vegas", 
-                            "opencl"]:
+                            "opencl-plain"]:
         print("Invalid backend specified: %s" % args.backend)
         sys.exit(1)
     if args.verbose:
@@ -168,8 +169,11 @@ if __name__ == "__main__":
                                                      args.integrator_name,
                                                      gsl_monte_carlo_type = gsl_type)
     else:
+        if args.backend.endswith("plain"):
+            opencl_type = OPENCL_MONTE_CARLO_PLAIN
         integrator = OpenClMonteCarloFunctionIntegrator(integrand,
-                                                        args.integrator_name)
+                                                        args.integrator_name,
+                                                        opencl_monte_carlo_type = opencl_type)
     if args.verbose:
         print("Integral signature:")
         print("\t%s" % integrator.evaluation_function.signature)

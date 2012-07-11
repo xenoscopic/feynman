@@ -4,8 +4,11 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.6.4)
 #Create the project
 PROJECT(FeynmanCIntegrationExample)
 
+#Set the path to the Feynman source
+SET(FEYNMAN_SOURCE_PATH "${PROJECT_SOURCE_DIR}/../..")
+
 #Add some custom CMake extensions
-SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${FEYNMAN_SOURCE_PATH}/share/cmake)
 
 #Just a little utility command for wrapping strings
 macro(join_arguments var)
@@ -34,8 +37,8 @@ IF(OPENCL_FOUND)
 ENDIF(OPENCL_FOUND)
 
 #Set the integrand paths
-SET(INTEGRAND_HEADER_PATH ${PROJECT_SOURCE_DIR}/../share/integrands.h)
-SET(INTEGRAND_SOURCE_PATH ${PROJECT_SOURCE_DIR}/../share/integrands.cpp)
+SET(INTEGRAND_HEADER_PATH ${FEYNMAN_SOURCE_PATH}/share/sample_integrands.h)
+SET(INTEGRAND_SOURCE_PATH ${FEYNMAN_SOURCE_PATH}/share/sample_integrands.cpp)
 
 #Set the integrand function names
 SET(INTEGRAND_FUNCTIONS
@@ -51,10 +54,7 @@ FILE(MAKE_DIRECTORY "${SOURCE_OUTPUT_DIRECTORY}")
 
 #Add to include paths
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include)
-INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/../share)
-
-#Set the path to the Feynman source
-SET(FEYNMAN_SOURCE_PATH "${PROJECT_SOURCE_DIR}/../..")
+INCLUDE_DIRECTORIES(${FEYNMAN_SOURCE_PATH}/share)
 
 #Set the integration types
 IF(GSL_FOUND)
@@ -68,7 +68,7 @@ ENDIF(GSL_FOUND)
 IF(OPENCL_FOUND)
     SET(INTEGRATION_TYPES
         ${INTEGRATION_TYPES}
-        "opencl"
+        "opencl-plain"
     )
 ENDIF(OPENCL_FOUND)
 
@@ -89,7 +89,7 @@ FOREACH(t ${INTEGRATION_TYPES})
 
         #Create the command
         ADD_CUSTOM_COMMAND(OUTPUT ${HEADER_OUTPUT_PATH} ${SOURCE_OUTPUT_PATH}
-                           COMMAND ${FEYNMAN_SOURCE_PATH}/genint.py --integrand-file ${INTEGRAND_HEADER_PATH} --integrand-name ${INTEGRAND} --dependencies integrands.h --header-output-path ${HEADER_OUTPUT_PATH} --source-output-path ${SOURCE_OUTPUT_PATH} --integrator-name ${OUTPUT_CLASS_NAME} --backend ${t}
+                           COMMAND ${FEYNMAN_SOURCE_PATH}/genint.py --integrand-file ${INTEGRAND_SOURCE_PATH} --integrand-name ${INTEGRAND} --dependencies sample_integrands.h --header-output-path ${HEADER_OUTPUT_PATH} --source-output-path ${SOURCE_OUTPUT_PATH} --integrator-name ${OUTPUT_CLASS_NAME} --backend ${t}
                            VERBATIM)
         
         #Record the target and output files

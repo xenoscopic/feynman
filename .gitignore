@@ -6,3 +6,4 @@ externals*
 examples/cpp-integration/build*
 examples/cpp-integration/include*
 examples/cpp-integration/src*
+examples/opencl-query/build*

@@ -278,9 +278,20 @@ class CFile(object):
         return self.__function_declarations
 
     def __getitem__(self, key):
+        #Scan through the file.  
+        #HACK: There may be prototypes for the 
+        #functions because clang processes include 
+        #directives, which is nice, but a bit of a 
+        #pain.  We try to find the result which 
+        #has more information, in this case, the 
+        #body, which is necessary for OpenCL.
+        result = None
         for decl in self.__function_declarations:
             if decl.name == key:
-                return decl
-
+                if result == None:
+                    result = decl
+                elif decl.has_body > result.has_body:
+                    result = decl
+        
         #No matching declaration found
-        return None
+        return result

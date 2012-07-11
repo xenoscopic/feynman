@@ -1,4 +1,4 @@
-#include "integrands.h"
+#include "sample_integrands.h"
 
 //Standard includes
 #include <math.h>

@@ -64,7 +64,7 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
     return 1;
 }
 
-const char * ${integrator.name}::_ranlux_source = 
-$ranlux_template;
 const char * ${integrator.name}::_program_source = 
 $program_template;
+const char * ${integrator.name}::_ranlux_source = 
+$ranlux_template;

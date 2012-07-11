@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 //Integrand includes (for M_PI only)
-#include "integrands.h"
+#include "sample_integrands.h"
 
 //GSL integration includes
 #ifdef HAVE_GSL
@@ -19,8 +19,8 @@
 
 //OpenCL integration includes
 #ifdef HAVE_OPENCL
-#include "unit_cylinder_opencl_integrator.h"
-#include "random_walk_opencl_integrator.h"
+#include "unit_cylinder_opencl_plain_integrator.h"
+#include "random_walk_opencl_plain_integrator.h"
 #endif
 
 bool diff_timevals(struct timeval *result, 
@@ -109,7 +109,7 @@ int main()
     run_unit_cylinder_integrator<unit_cylinder_gsl_vegas_integrator>("GSL Vegas Unit Cylinder");
     #endif
     #ifdef HAVE_OPENCL
-    run_unit_cylinder_integrator<unit_cylinder_opencl_integrator>("OpenCL Unit Cylinder");
+    run_unit_cylinder_integrator<unit_cylinder_opencl_plain_integrator>("OpenCL Unit Cylinder");
     #endif
 
     //Run the random walk integrations
@@ -119,7 +119,7 @@ int main()
     run_random_walk_integrator<random_walk_gsl_vegas_integrator>("GSL Vegas Random Walk");
     #endif
     #ifdef HAVE_OPENCL
-    run_random_walk_integrator<random_walk_opencl_integrator>("OpenCL Random Walk");
+    run_random_walk_integrator<random_walk_opencl_plain_integrator>("OpenCL Random Walk");
     #endif
 
     return 0;
