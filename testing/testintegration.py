@@ -36,7 +36,7 @@ def test_integrator_generation():
         #integrand (for lower and upper limits), and the types
         #should match up.
         assert(len(integrand.argument_types) > 0)
-        assert(len(integrator.evaluation_function.argument_types) == ((2 * len(integrand.argument_types)) + 1))
+        assert(len(integrator.evaluation_function.argument_types) == (2 * len(integrand.argument_types)))
         assert(integrator.n_dimensions == len(integrand.argument_types))
         arg_i = 0
         for arg_type in integrand.argument_types:

@@ -45,7 +45,6 @@ class FunctionIntegrator(object):
         evaluation_argument_types = integrand.argument_types
         evaluation_argument_types = tuple(chain(*zip(evaluation_argument_types, 
                                                      evaluation_argument_types)))
-        evaluation_argument_types += (integrand.return_type + " *",)
 
         #Generate argument names.  We suffix _min and _max to each
         #argument if it is already given, otherwise we just name it
@@ -60,10 +59,9 @@ class FunctionIntegrator(object):
                 evaluation_argument_names.append("%s_min" % name)
                 evaluation_argument_names.append("%s_max" % name)
         evaluation_argument_names = tuple(evaluation_argument_names)
-        evaluation_argument_names += ("error",)
 
         #Generate argument default values
-        evaluation_argument_default_values = ("",) * (len(evaluation_argument_names) - 1) + ("NULL",)
+        evaluation_argument_default_values = ("",) * (len(evaluation_argument_names) - 1)
 
         #Initialize the super-class
         self.__evaluation_function = CFunctionDeclaration(evaluation_function_name, 
@@ -234,6 +232,7 @@ _ALL_OPENCL_MONTE_CARLO_TYPES = [
 ]
 _OPENCL_BASE_MONTE_CARLO_HEADER = "OpenClMonteCarlo.h"
 _OPENCL_BASE_MONTE_CARLO_SOURCE = "OpenClMonteCarlo.cpp"
+_OPENCL_FIXES_SOURCE = "OpenClMonteCarloFixes.cl"
 _OPENCL_RANLUX_SOURCE = "ranluxcl.cl"
 _OPENCL_MONTE_CARLO_TEMPLATES = {
     OPENCL_MONTE_CARLO_PLAIN: "OpenClPlainMonteCarlo.cl",
@@ -293,16 +292,22 @@ class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
                                           _OPENCL_BASE_MONTE_CARLO_SOURCE
                                           ])
                                          )
-        method_template = resource_string(__name__, 
-                                          "/".join([
-                                          _OPENCL_CARLO_TEMPLATE_PATH, 
-                                          opencl_method_template
-                                          ])
-                                         )
         ranlux_template = resource_string(__name__, 
                                           "/".join([
                                           _OPENCL_CARLO_TEMPLATE_PATH, 
                                           _OPENCL_RANLUX_SOURCE
+                                          ])
+                                         )
+        fixes_template = resource_string(__name__, 
+                                         "/".join([
+                                         _OPENCL_CARLO_TEMPLATE_PATH, 
+                                         _OPENCL_FIXES_SOURCE
+                                         ])
+                                        )
+        method_template = resource_string(__name__, 
+                                          "/".join([
+                                          _OPENCL_CARLO_TEMPLATE_PATH, 
+                                          opencl_method_template
                                           ])
                                          )
 
@@ -327,8 +332,9 @@ class OpenClMonteCarloFunctionIntegrator(FunctionIntegrator):
 
         #Load the templates and fill with data
         method_template = str(Template(method_template, searchList = [template_data]))
-        template_data["program_template"] = c_string_literal_with_c_code(method_template)
+        template_data["fixes_template"] = c_string_literal_with_c_code(fixes_template)
         template_data["ranlux_template"] = c_string_literal_with_c_code(ranlux_template)
+        template_data["program_template"] = c_string_literal_with_c_code(method_template)
         header_template = Template(header_template, searchList = [template_data])
         source_template = Template(source_template, searchList = [template_data])
 

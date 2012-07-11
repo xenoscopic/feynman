@@ -21,7 +21,7 @@ ${integrator.name}::~${integrator.name}()
     gsl_rng_free(_random_number_generator);
 }
 
-$integrator.evaluation_function.return_type ${integrator.name}::operator()($integrator.evaluation_function.argument_signature)
+$integrator.evaluation_function.return_type ${integrator.name}::operator()($integrator.evaluation_function.argument_signature, $integrator.evaluation_function.return_type *error)
 {
     //Boiler plate GSL variables
     double result, _error;

@@ -14,9 +14,10 @@ class $integrator.name
         ${integrator.name}();
         ~${integrator.name}();
 
-        $integrator.evaluation_function.return_type operator()($integrator.evaluation_function.argument_signature);
+        $integrator.evaluation_function.return_type operator()($integrator.evaluation_function.argument_signature, $integrator.evaluation_function.return_type *error);
 
     private:
+        static const char * _fixes_source;
         static const char * _ranlux_source;
         static const char * _program_source;
         cl_device_id _device_id;

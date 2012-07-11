@@ -45,6 +45,4 @@ def c_string_literal_with_c_code(s):
     lines = s.split("\n")
 
     #Create the result
-    return "\n".join(["\"%s\" \\" % l.encode("string_escape").replace("\"", "\\\"") for l in lines]).strip(" \\")
-
-    
+    return "\n".join(["\"%s\\n\" \\" % l.encode("string_escape").replace("\"", "\\\"") for l in lines]).strip(" \\")

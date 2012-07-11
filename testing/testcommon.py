@@ -44,16 +44,16 @@ def test_underscore_to_camel_case():
 
 def test_c_string_literal_with_c_code():
     test_value_pairs = (
-        ("\t", '"\\t"'),
-        ("\n", '"" \\\n""'),
-        ("\"", '"\\""'),
-        ("\\", '"\\\\"'),
-        ("\r\n", '"" \\\n""'),
-        ("\r", '"" \\\n""'),
-        ("a", '"a"'),
-        ("#include <test>", '"#include <test>"'),
-        ('#include "test.h"', '"#include \\\"test.h\\\""'),
-        ("5.2", '"5.2"')
+        ("\t", '"\\t\\n"'),
+        ("\n", '"\\n" \\\n"\\n"'),
+        ("\"", '"\\"\\n"'),
+        ("\\", '"\\\\\\n"'),
+        ("\r\n", '"\\n" \\\n"\\n"'),
+        ("\r", '"\\n" \\\n"\\n"'),
+        ("a", '"a\\n"'),
+        ("#include <test>", '"#include <test>\\n"'),
+        ('#include "test.h"', '"#include \\\"test.h\\\"\\n"'),
+        ("5.2", '"5.2\\n"')
     )
 
     for test, value in test_value_pairs:

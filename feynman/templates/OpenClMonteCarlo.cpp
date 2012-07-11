@@ -2,6 +2,7 @@
 \#include "${primary_header_include}"
 
 //Standard includes
+\#include <cstdio>
 \#include <stdexcept>
 
 #if len($integrator.integrand.include_dependencies) > 0
@@ -51,6 +52,45 @@ ${integrator.name}::${integrator.name}()
     {
         throw runtime_error("Unable to create a command queue.");
     }
+
+    //Compile the OpenCL code
+    const char *strings[] = {
+        $integrator.name::_fixes_source,
+        $integrator.name::_ranlux_source,
+        $integrator.name::_program_source
+    };
+    cl_uint n_sources = sizeof(strings)/sizeof(const char *);
+    _program = clCreateProgramWithSource(_context,
+                                         n_sources,
+                                         strings,
+                                         NULL,
+                                         &error);
+    if(!_program)
+    {
+        throw runtime_error("Unable to create OpenCL program.");
+    }
+    error = clBuildProgram(_program, 
+                           0,
+                           NULL,
+                           NULL,
+                           NULL,
+                           NULL);
+    if(error != CL_SUCCESS)
+    {
+        size_t length;
+        char buffer[2048];
+
+        clGetProgramBuildInfo(_program, 
+                              _device_id, 
+                              CL_PROGRAM_BUILD_LOG, 
+                              sizeof(buffer), 
+                              buffer, 
+                              &length);
+
+        printf("Failed to build OpenCL program (%i):\n", error);
+        printf("%s\n", buffer);
+        //throw runtime_error("Unable to compile OpenCL program.");
+    }
 }
 
 ${integrator.name}::~${integrator.name}()
@@ -59,12 +99,14 @@ ${integrator.name}::~${integrator.name}()
     clReleaseContext(_context);
 }
 
-$integrator.evaluation_function.return_type ${integrator.name}::operator()($integrator.evaluation_function.argument_signature)
+$integrator.evaluation_function.return_type ${integrator.name}::operator()($integrator.evaluation_function.argument_signature, $integrator.evaluation_function.return_type *error)
 {
     return 1;
 }
 
-const char * ${integrator.name}::_program_source = 
-$program_template;
+const char * ${integrator.name}::_fixes_source = 
+$fixes_template;
 const char * ${integrator.name}::_ranlux_source = 
 $ranlux_template;
+const char * ${integrator.name}::_program_source = 
+$program_template;

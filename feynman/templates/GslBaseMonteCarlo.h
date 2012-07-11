@@ -15,7 +15,7 @@ class $integrator.name
         ${integrator.name}();
         ~${integrator.name}();
 
-        $integrator.evaluation_function.return_type operator()($integrator.evaluation_function.argument_signature);
+        $integrator.evaluation_function.return_type operator()($integrator.evaluation_function.argument_signature, $integrator.evaluation_function.return_type *error);
 
     private:
         const gsl_rng_type *_random_number_generator_type;

@@ -1,9 +1,9 @@
 $integrator.integrand.text
 
 __kernel void integrate(
-    ${", ".join($integrator.evaluation_function.argument_names)},
+    $integrator.evaluation_function.argument_signature,
     int points_per_worker,
-    __global float *result
+    __global $integrator.evaluation_function.return_type *result
     )
 {
 
