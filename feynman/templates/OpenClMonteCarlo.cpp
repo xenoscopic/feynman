@@ -4,6 +4,7 @@
 //Standard includes
 \#include <cstdio>
 \#include <stdexcept>
+\#include <ctime>
 
 #if len($integrator.integrand.include_dependencies) > 0
 //Depedency includes
@@ -261,15 +262,15 @@ void ${integrator.name}::_create_kernel_resources()
 {
     if(_plain_resources == NULL)
     {
-        _plain_resources = new _${integrator.name}KernelResources(_context, _plain, _device_id, _n_calls);
+        _plain_resources = new _${integrator.name}KernelResources(_context, _command_queue, _ran_init, _plain, _device_id, _n_calls);
     }
     if(_miser_resources == NULL)
     {
-        _miser_resources = new _${integrator.name}KernelResources(_context, _miser, _device_id, _n_calls);
+        _miser_resources = new _${integrator.name}KernelResources(_context, _command_queue, _ran_init, _miser, _device_id, _n_calls);
     }
     if(_vegas_resources == NULL)
     {
-        _vegas_resources = new _${integrator.name}KernelResources(_context, _vegas, _device_id, _n_calls);
+        _vegas_resources = new _${integrator.name}KernelResources(_context, _command_queue, _ran_init, _vegas, _device_id, _n_calls);
     }
 }
 
@@ -304,7 +305,9 @@ valid(false)
 }
 
 ${integrator.name}::_${integrator.name}KernelResources::_${integrator.name}KernelResources(cl_context context,
-                                                                                           cl_kernel kernel,
+                                                                                           cl_command_queue command_queue,
+                                                                                           cl_kernel random_init_kernel,
+                                                                                           cl_kernel method_kernel,
                                                                                            cl_device_id device,
                                                                                            int n_calls) :
 work_group_size(0),
@@ -315,9 +318,11 @@ group_outputs(NULL),
 valid(false)
 {
     //Kernel/Device execution specs
-    //The maximum work group size for the kernel on the device
-    size_t max_work_group_size;
-    //The preferred work group size multiple
+    //The preferred work group size multiple for the random 
+    //number initializtaion kernel on the device
+    size_t preferred_random_init_work_group_size_multiple;
+    //The preferred work group size multiple for the integration
+    //kernel on the device
     size_t preferred_work_group_size_multiple;
     //Number of dimensions of work items that the device supports, guaranteed to be at least 3
     const size_t max_work_item_dimensions = 3;
@@ -325,24 +330,24 @@ valid(false)
     size_t max_work_items_in_1d;
     
     //Grab execution specs
-    if(clGetKernelWorkGroupInfo(kernel,
+    if(clGetKernelWorkGroupInfo(random_init_kernel,
                                 device,
-                                CL_KERNEL_WORK_GROUP_SIZE,
+                                CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
                                 sizeof(size_t),
-                                &max_work_group_size,
+                                &preferred_random_init_work_group_size_multiple,
                                 NULL) != CL_SUCCESS)
     {
-        printf("ERROR: Unable to determine max work group size.\n");
+        printf("ERROR: Unable to determine preferred work group size multiple for integration kernel.\n");
         return;
     }
-    if(clGetKernelWorkGroupInfo(kernel,
+    if(clGetKernelWorkGroupInfo(method_kernel,
                                 device,
                                 CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
                                 sizeof(size_t),
                                 &preferred_work_group_size_multiple,
                                 NULL) != CL_SUCCESS)
     {
-        printf("ERROR: Unable to determine preferred work group size multiple.\n");
+        printf("ERROR: Unable to determine preferred work group size multiple for integration kernel.\n");
         return;
     }
     //HACK: There seems to be a bug in this method, at least on OS X,
@@ -374,25 +379,28 @@ valid(false)
     delete [] max_global_work_items;
     max_global_work_items = NULL;
     
-    //TODO: Optimize the calculation of parameters
-    //Calculate the work group size information
-    while(work_group_size <= max_work_group_size)
-    {
-        work_group_size += preferred_work_group_size_multiple;
-    }
-    work_group_size -= preferred_work_group_size_multiple;
+    //Calculate execution parameters
+    size_t work_item_count = max_work_items_in_1d;
+
+    //Calculate the work group size
+    work_group_size = preferred_work_group_size_multiple;
 
     //Calculate the number of work groups
-    work_group_count = max_work_items_in_1d / work_group_size;
+    work_group_count = work_item_count / work_group_size;
 
     //Calculate the number of points each work item will
     //have to calculate
-    size_t work_item_count = work_group_size * work_group_count;
-    work_item_point_count = n_calls / (work_item_count);
+    work_item_point_count = n_calls / work_item_count;
     if(work_item_point_count * work_item_count < n_calls)
     {
         work_item_point_count++; //Take care of division remainder
     }
+
+    //Print execution information
+    // printf("Work Group Size:  %zu\n", work_group_size);
+    // printf("Work Group Count: %zu\n", work_group_count);
+    // printf("Total Work Items: %zu\n", work_item_count);
+    // printf("Points per Work Item: %zu\n", work_item_point_count);
 
     //Create the random number generator and output buffers
     cl_int error;
@@ -414,6 +422,41 @@ valid(false)
     if(!group_outputs || error != CL_SUCCESS)
     {
         printf("ERROR: Unable to create work group output buffer.\n");
+        return;
+    }
+
+    //Run the random number initialization kernel
+    cl_uint seed;
+    time_t t;
+    time(&t);
+    seed = t;
+    
+    if(clSetKernelArg(random_init_kernel, 0, sizeof(seed), &seed) != CL_SUCCESS)
+    {
+        printf("ERROR: Unable to set random number seed.\n");
+        return;
+    }
+    if(clSetKernelArg(random_init_kernel, 1, sizeof(cl_mem), &ranluxcl_states) != CL_SUCCESS)
+    {
+        printf("ERROR: Couldn't set random number state buffer.\n");
+        return;
+    }
+    if(clEnqueueNDRangeKernel(command_queue, 
+                              random_init_kernel, 
+                              1, 
+                              NULL, 
+                              &work_item_count,
+                              &preferred_random_init_work_group_size_multiple,
+                              0, 
+                              NULL, 
+                              NULL) != CL_SUCCESS)
+    {
+        printf("ERROR: Unable to queue random number initialization kernel.\n");
+        return;
+    }
+    if(clFinish(command_queue) != CL_SUCCESS)
+    {
+        printf("ERROR: Unable to execute random number initialization kernel.\n");
         return;
     }
 

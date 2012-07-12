@@ -55,7 +55,9 @@ class $integrator.name
         {   
             _${integrator.name}KernelResources();
             _${integrator.name}KernelResources(cl_context context,
-                                               cl_kernel kernel,
+                                               cl_command_queue command_queue,
+                                               cl_kernel random_init_kernel,
+                                               cl_kernel method_kernel,
                                                cl_device_id device,
                                                int n_calls);
             ~_${integrator.name}KernelResources();
