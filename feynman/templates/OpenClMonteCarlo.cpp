@@ -15,18 +15,71 @@
 //Standard namespaces
 using namespace std;
 
+//Useful macros
+#define RELEASE_CL_CONTEXT_SAFE(mem)\
+    {\
+        if(mem != NULL)\
+        {\
+            clReleaseContext(mem);\
+            mem = NULL;\
+        }\
+    }\
+
+#define RELEASE_CL_COMMAND_QUEUE_SAFE(mem)\
+    {\
+        if(mem != NULL)\
+        {\
+            clReleaseCommandQueue(mem);\
+            mem = NULL;\
+        }\
+    }\
+
+#define RELEASE_CL_PROGRAM_SAFE(mem)\
+    {\
+        if(mem != NULL)\
+        {\
+            clReleaseProgram(mem);\
+            mem = NULL;\
+        }\
+    }\
+
+#define RELEASE_CL_KERNEL_SAFE(mem)\
+    {\
+        if(mem != NULL)\
+        {\
+            clReleaseKernel(mem);\
+            mem = NULL;\
+        }\
+    }\
+
+#define RELEASE_CL_MEMORY_SAFE(mem)\
+    {\
+        if(mem != NULL)\
+        {\
+            clReleaseMemObject(mem);\
+            mem = NULL;\
+        }\
+    }\
+
+#define RANLUXCL_STATE_SIZE 112
+
 ${integrator.name}::${integrator.name}() :
+_valid(false),
 _monte_carlo_type(${integrator.name}::MonteCarloPlain),
 _n_calls(500000),
 _device_id(NULL),
 _context(NULL),
 _command_queue(NULL),
 _program(NULL),
-_initialization_kernel(NULL),
-_plain_kernel(NULL),
-_miser_kernel(NULL),
-_vegas_kernel(NULL),
-_valid(true)
+_ran_init(NULL),
+_plain(NULL),
+_miser(NULL),
+_vegas(NULL),
+_sum(NULL),
+_output(NULL),
+_plain_resources(NULL),
+_miser_resources(NULL),
+_vegas_resources(NULL)
 {
     //Try to find a device by type preference
     cl_device_type preferred_device_types[] = {
@@ -38,7 +91,7 @@ _valid(true)
     };
     int i = 0;
     int n_device_types = sizeof(preferred_device_types)/sizeof(cl_device_type);
-    int error = CL_DEVICE_NOT_FOUND;
+    cl_int error = CL_DEVICE_NOT_FOUND;
     while(error == CL_DEVICE_NOT_FOUND
           && i < n_device_types)
     {
@@ -48,27 +101,24 @@ _valid(true)
     {
         //Unable to find a valid device
         printf("ERROR: Unable to find a valid compute device\n");
-        _valid = false;
         return;
     }
 
     //Create a compute context
     _context = clCreateContext(0, 1, &_device_id, NULL, NULL, &error);
-    if(!_context)
+    if(!_context || error != CL_SUCCESS)
     {
         //Unable to create a compute context
         printf("ERROR: Unable to create a compute context.\n");
-        _valid = false;
         return;
     }
 
     //Create a command queue
     _command_queue = clCreateCommandQueue(_context, _device_id, 0, &error);
-    if(!_command_queue)
+    if(!_command_queue || error != CL_SUCCESS)
     {
         //Unable to create a command queue
         printf("ERROR: Unable to create a command queue.\n");
-        _valid = false;
         return;
     }
 
@@ -88,11 +138,10 @@ _valid(true)
                                          strings,
                                          NULL,
                                          &error);
-    if(!_program)
+    if(!_program || error != CL_SUCCESS)
     {
         //Unable to create the OpenCL program
         printf("ERROR: Unable to create the OpenCL program.\n");
-        _valid = false;
         return;
     }
     error = clBuildProgram(_program, 
@@ -116,53 +165,62 @@ _valid(true)
 
         printf("ERROR: Unable to build (compile) the OpenCL program (%i):\n", error);
         printf("%s\n", buffer);
-        _valid = false;
         return;
     }
 
     //Grab out the integration kernels
-    _initialization_kernel = clCreateKernel(_program, "random_initialize", &error);
-    if(!_initialization_kernel || error != CL_SUCCESS)
+    _ran_init = clCreateKernel(_program, "random_initialize", &error);
+    if(!_ran_init || error != CL_SUCCESS)
     {
         printf("ERROR: Unable to create initialization kernel.\n");
-        _valid = false;
         return;
     }
-    _plain_kernel = clCreateKernel(_program, "plain_integrate", &error);
-    if(!_plain_kernel || error != CL_SUCCESS)
+    _plain = clCreateKernel(_program, "plain_integrate", &error);
+    if(!_plain || error != CL_SUCCESS)
     {
         printf("ERROR: Unable to create plain Monte Carlo integration kernel.\n");
-        _valid = false;
         return;
     }
-    _miser_kernel = clCreateKernel(_program, "miser_integrate", &error);
-    if(!_miser_kernel || error != CL_SUCCESS)
+    _miser = clCreateKernel(_program, "miser_integrate", &error);
+    if(!_miser || error != CL_SUCCESS)
     {
         printf("ERROR: Unable to create miser Monte Carlo integration kernel.\n");
-        _valid = false;
         return;
     }
-    _vegas_kernel = clCreateKernel(_program, "vegas_integrate", &error);
-    if(!_vegas_kernel || error != CL_SUCCESS)
+    _vegas = clCreateKernel(_program, "vegas_integrate", &error);
+    if(!_vegas || error != CL_SUCCESS)
     {
         printf("ERROR: Unable to create vegas Monte Carlo integration kernel.\n");
-        _valid = false;
         return;
     }
 
-    //TODO: Run random number initialization kernels
+    //Create the global output buffer
+    _output = clCreateBuffer(_context, CL_MEM_WRITE_ONLY, sizeof(float), NULL, &error);
+    if(!_output || error != CL_SUCCESS)
+    {
+        printf("ERROR: Unable to create output buffer.\n");
+        return;
+    }
 
+    //Configure kernel resources
+    _create_kernel_resources();
+
+    //Mark the integrator as valid
+    _valid = true;
 }
 
 ${integrator.name}::~${integrator.name}()
 {
-    clReleaseKernel(_vegas_kernel);
-    clReleaseKernel(_miser_kernel);
-    clReleaseKernel(_plain_kernel);
-    clReleaseKernel(_initialization_kernel);
-    clReleaseProgram(_program);
-    clReleaseCommandQueue(_command_queue);
-    clReleaseContext(_context);
+    _release_kernel_resources();
+    RELEASE_CL_MEMORY_SAFE(_output);
+    RELEASE_CL_KERNEL_SAFE(_sum);
+    RELEASE_CL_KERNEL_SAFE(_vegas);
+    RELEASE_CL_KERNEL_SAFE(_miser);
+    RELEASE_CL_KERNEL_SAFE(_plain);
+    RELEASE_CL_KERNEL_SAFE(_ran_init);
+    RELEASE_CL_PROGRAM_SAFE(_program);
+    RELEASE_CL_COMMAND_QUEUE_SAFE(_command_queue);
+    RELEASE_CL_CONTEXT_SAFE(_context);
 }
 
 void ${integrator.name}::set_monte_carlo_type(${integrator.name}::MonteCarloType t)
@@ -178,6 +236,8 @@ ${integrator.name}::MonteCarloType ${integrator.name}::monte_carlo_type()
 void ${integrator.name}::set_n_calls(int n)
 {
     _n_calls = n;
+    _release_kernel_resources();
+    _create_kernel_resources();
 }
 
 int ${integrator.name}::n_calls()
@@ -189,12 +249,182 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
 {
     if(!_valid)
     {
-        printf("ERROR: Integrator did not intialize correctly, and hence cannot integrate.");
+        printf("ERROR: Integrator did not intialize correctly, and hence cannot integrate.\n");
         return 0;
     }
 
     //TODO: Launch the kernel!
     return 1;
+}
+
+void ${integrator.name}::_create_kernel_resources()
+{
+    if(_plain_resources == NULL)
+    {
+        _plain_resources = new _${integrator.name}KernelResources(_context, _plain, _device_id, _n_calls);
+    }
+    if(_miser_resources == NULL)
+    {
+        _miser_resources = new _${integrator.name}KernelResources(_context, _miser, _device_id, _n_calls);
+    }
+    if(_vegas_resources == NULL)
+    {
+        _vegas_resources = new _${integrator.name}KernelResources(_context, _vegas, _device_id, _n_calls);
+    }
+}
+
+void ${integrator.name}::_release_kernel_resources()
+{
+    if(_plain_resources != NULL)
+    {
+        delete _plain_resources;
+        _plain_resources = NULL;
+    }
+    if(_miser_resources != NULL)
+    {
+        delete _miser_resources;
+        _miser_resources = NULL;
+    }
+    if(_vegas_resources != NULL)
+    {
+        delete _vegas_resources;
+        _vegas_resources = NULL;
+    }
+}
+
+${integrator.name}::_${integrator.name}KernelResources::_${integrator.name}KernelResources() :
+work_item_point_count(0),
+work_group_size(0),
+work_group_count(0),
+ranluxcl_states(NULL),
+group_outputs(NULL),
+valid(false)
+{
+
+}
+
+${integrator.name}::_${integrator.name}KernelResources::_${integrator.name}KernelResources(cl_context context,
+                                                                                           cl_kernel kernel,
+                                                                                           cl_device_id device,
+                                                                                           int n_calls) :
+work_group_size(0),
+work_group_count(0),
+work_item_point_count(0),
+ranluxcl_states(NULL),
+group_outputs(NULL),
+valid(false)
+{
+    //Kernel/Device execution specs
+    //The maximum work group size for the kernel on the device
+    size_t max_work_group_size;
+    //The preferred work group size multiple
+    size_t preferred_work_group_size_multiple;
+    //Number of dimensions of work items that the device supports, guaranteed to be at least 3
+    const size_t max_work_item_dimensions = 3;
+    //Maximum number of work items along the first dimension
+    size_t max_work_items_in_1d;
+    
+    //Grab execution specs
+    if(clGetKernelWorkGroupInfo(kernel,
+                                device,
+                                CL_KERNEL_WORK_GROUP_SIZE,
+                                sizeof(size_t),
+                                &max_work_group_size,
+                                NULL) != CL_SUCCESS)
+    {
+        printf("ERROR: Unable to determine max work group size.\n");
+        return;
+    }
+    if(clGetKernelWorkGroupInfo(kernel,
+                                device,
+                                CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+                                sizeof(size_t),
+                                &preferred_work_group_size_multiple,
+                                NULL) != CL_SUCCESS)
+    {
+        printf("ERROR: Unable to determine preferred work group size multiple.\n");
+        return;
+    }
+    //HACK: There seems to be a bug in this method, at least on OS X,
+    //where if you make this query twice for the same device, it returns
+    //a huge number (2251765453950976) for the number of dimensions.
+    //Since the number of dimensions is likely going to remain 3 for
+    //a while, I'll just fix that above.
+    // if(clGetDeviceInfo(device, 
+    //                    CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, 
+    //                    sizeof(size_t), 
+    //                    &max_work_item_dimensions, 
+    //                    NULL) != CL_SUCCESS)
+    // {
+    //     printf("ERROR: Unable to determine maximum number of work item dimensions.\n");
+    //     return;
+    // }
+    size_t *max_global_work_items = new size_t[max_work_item_dimensions];
+    if(clGetDeviceInfo(device, 
+                       CL_DEVICE_MAX_WORK_ITEM_SIZES, 
+                       max_work_item_dimensions * sizeof(size_t), 
+                       max_global_work_items, 
+                       NULL) != CL_SUCCESS)
+    {
+        printf("ERROR: Unable to determine maximum number of work item dimensions.\n");
+        delete [] max_global_work_items;
+        return;
+    }
+    max_work_items_in_1d = max_global_work_items[0];
+    delete [] max_global_work_items;
+    max_global_work_items = NULL;
+    
+    //TODO: Optimize the calculation of parameters
+    //Calculate the work group size information
+    while(work_group_size <= max_work_group_size)
+    {
+        work_group_size += preferred_work_group_size_multiple;
+    }
+    work_group_size -= preferred_work_group_size_multiple;
+
+    //Calculate the number of work groups
+    work_group_count = max_work_items_in_1d / work_group_size;
+
+    //Calculate the number of points each work item will
+    //have to calculate
+    size_t work_item_count = work_group_size * work_group_count;
+    work_item_point_count = n_calls / (work_item_count);
+    if(work_item_point_count * work_item_count < n_calls)
+    {
+        work_item_point_count++; //Take care of division remainder
+    }
+
+    //Create the random number generator and output buffers
+    cl_int error;
+    ranluxcl_states = clCreateBuffer(context,
+                                     CL_MEM_READ_WRITE, 
+                                     work_item_count * RANLUXCL_STATE_SIZE, 
+                                     NULL, 
+                                     &error);
+    if(!ranluxcl_states || error != CL_SUCCESS)
+    {
+        printf("ERROR: Unable to create random number generator.\n");
+        return;
+    }
+    group_outputs = clCreateBuffer(context,
+                                   CL_MEM_READ_WRITE,
+                                   work_group_count * sizeof(float),
+                                   NULL,
+                                   &error);
+    if(!group_outputs || error != CL_SUCCESS)
+    {
+        printf("ERROR: Unable to create work group output buffer.\n");
+        return;
+    }
+
+    //Mark the sources as valid
+    valid = true;
+}
+
+${integrator.name}::_${integrator.name}KernelResources::~_${integrator.name}KernelResources()
+{
+    RELEASE_CL_MEMORY_SAFE(ranluxcl_states);
+    RELEASE_CL_MEMORY_SAFE(group_outputs);
 }
 
 const char * ${integrator.name}::_fixes_source = 
