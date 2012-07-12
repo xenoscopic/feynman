@@ -36,7 +36,6 @@ class $integrator.name
 
         //These values are controlled by the constructor/
         //destructor
-        bool _valid;
         MonteCarloType _monte_carlo_type;
         int _n_calls;
         cl_device_id _device_id;
@@ -65,8 +64,6 @@ class $integrator.name
             size_t work_group_count; //Number of work groups
             size_t work_item_point_count; //Number of phase space points per work item
             cl_mem ranluxcl_states; //Random number generator states
-            cl_mem group_outputs; //The global output buffer for each work group, one entry per group
-            bool valid;
 
             private:
                 //Don't allow copying due to buffer resources
