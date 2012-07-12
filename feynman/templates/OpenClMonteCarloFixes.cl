@@ -34,4 +34,9 @@ inline void atomic_add_float(volatile __global float *source, const float operan
     while(atomic_cmpxchg((volatile __global unsigned int *)source, prev_value.int_value, new_value.int_value) != prev_value.int_value);
 }
 
+__kernel void mem_set(float value, __global float *mem)
+{
+    mem[get_global_id(0)] = value;
+}
+
 #endif //OPENCL_MONTE_CARLO_FIXES_CL

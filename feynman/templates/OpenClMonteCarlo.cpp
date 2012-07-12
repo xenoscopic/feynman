@@ -6,6 +6,7 @@
 \#include <cstdio>
 \#include <stdexcept>
 \#include <ctime>
+\#include <cmath>
 
 #if len($integrator.integrand.include_dependencies) > 0
 //Depedency includes
@@ -161,6 +162,8 @@ _vegas_resources(NULL)
     //Grab out the integration kernels
     _ran_init = clCreateKernel(_program, "random_initialize", &error);
     CHECK_CL_OPERATION(error, "Unable to create initialization kernel");
+    _mem_set = clCreateKernel(_program, "mem_set", &error);
+    CHECK_CL_OPERATION(error, "Unable to create memory setting kernel");
     _plain = clCreateKernel(_program, "plain_integrate", &error);
     CHECK_CL_OPERATION(error, "Unable to create plain Monte Carlo integration kernel");
     _miser = clCreateKernel(_program, "miser_integrate", &error);
@@ -169,7 +172,7 @@ _vegas_resources(NULL)
     CHECK_CL_OPERATION(error, "Unable to create vegas Monte Carlo integration kernel");
 
     //Create the global output buffer
-    _output = clCreateBuffer(_context, CL_MEM_WRITE_ONLY, sizeof(float), NULL, &error);
+    _output = clCreateBuffer(_context, CL_MEM_WRITE_ONLY, 2 * sizeof(float), NULL, &error);
     CHECK_CL_OPERATION(error, "Unable to create output buffer");
 
     //Configure kernel resources
@@ -184,6 +187,7 @@ ${integrator.name}::~${integrator.name}()
     RELEASE_CL_KERNEL_SAFE(_vegas);
     RELEASE_CL_KERNEL_SAFE(_miser);
     RELEASE_CL_KERNEL_SAFE(_plain);
+    RELEASE_CL_KERNEL_SAFE(_mem_set);
     RELEASE_CL_KERNEL_SAFE(_ran_init);
     RELEASE_CL_PROGRAM_SAFE(_program);
     RELEASE_CL_COMMAND_QUEUE_SAFE(_command_queue);
@@ -217,6 +221,24 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
     //Boilerplate variables
     cl_int _error;
     size_t work_item_count = 1;
+
+    //Queue the memset kernel
+    float mem_value = 0;
+    size_t memory_count = 2;
+    CHECK_CL_OPERATION(clSetKernelArg(_mem_set, 0, sizeof(float), &mem_value), 
+                       "Unable to set memory set value");
+    CHECK_CL_OPERATION(clSetKernelArg(_mem_set, 1, sizeof(cl_mem), &_output), 
+                       "Couldn't set memory set buffer");
+    CHECK_CL_OPERATION(clEnqueueNDRangeKernel(_command_queue, 
+                                              _mem_set, 
+                                              1, 
+                                              NULL, 
+                                              &memory_count,
+                                              &memory_count,
+                                              0, 
+                                              NULL, 
+                                              NULL),
+                       "Unable to queue random number memory setting kernel");
 
     //Enqueue the appropriate kernel
     if(_monte_carlo_type == MonteCarloPlain)
@@ -260,12 +282,12 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
     }
 
     //Enqueue the answer copy
-    float result;
+    float result[2];
     CHECK_CL_OPERATION(clEnqueueReadBuffer(_command_queue, 
                                            _output, 
                                            CL_FALSE, 
                                            0, 
-                                           sizeof(float), 
+                                           2 * sizeof(float), 
                                            &result, 
                                            0, 
                                            NULL, 
@@ -275,20 +297,24 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
     //Wait for all operations to finish
     CHECK_CL_OPERATION(clFinish(_command_queue), "Unable to execute integration");
 
-    //Adjust for integral volume
+    //Calculate the total number of calls and the volume
+    float total_n_calls = work_item_count * _plain_resources->work_item_point_count;
     float volume = ${"*".join(["(%s - %s)" % ($integrator.evaluation_function.argument_names[2*i + 1], $integrator.evaluation_function.argument_names[2*i]) for i in xrange(0, len($integrator.integrand.argument_types))])};
-    result *= volume;
+    
+    //The following calculations are based upon this documentation:
+    //http://mathworld.wolfram.com/MonteCarloIntegration.html
 
-    //We now need to compute the total number of calls
-    //that were made, and divide the result by that
-    if(_monte_carlo_type == MonteCarloPlain)
+    //Calculate mean
+    float mean = volume * result[0] / total_n_calls;
+
+    //Calculate variance
+    float variance = volume * sqrt((result[1] - (result[0] * result[0] / total_n_calls)) / (total_n_calls * total_n_calls));
+    if(error != NULL)
     {
-        size_t total_n_calls = work_item_count * _plain_resources->work_item_point_count;
-        printf("total_n_calls: %zu, result: %f\n", total_n_calls, result);
-        result /= ((float)total_n_calls);
+        *error = variance;
     }
 
-    return result;
+    return mean;
 }
 
 void ${integrator.name}::_create_kernel_resources()

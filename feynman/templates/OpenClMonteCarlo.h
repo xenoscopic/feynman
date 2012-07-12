@@ -43,11 +43,12 @@ class $integrator.name
         cl_command_queue _command_queue;
         cl_program _program;
         cl_kernel _ran_init; //The random initialization kernel
+        cl_kernel _mem_set; //The memset kernel
         cl_kernel _plain; //The plain MC integration kernel
         cl_kernel _miser; //The miser MC integration kernel
         cl_kernel _vegas; //The vegas MC integration kernel
         cl_kernel _sum; //The global array summation kernel
-        cl_mem _output; //The global result output, sizeof(float)
+        cl_mem _output; //The global result output, 2 * sizeof(float), contains sum of all sample points, sum of square of all sample points
 
         //These values are controlled by the two methods below
         struct _${integrator.name}KernelResources

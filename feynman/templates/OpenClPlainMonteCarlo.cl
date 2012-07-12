@@ -1,4 +1,4 @@
-#define MAX_PLAIN_MONTE_CARLO_WORK_GROUP_SIZE 1024
+#define MAX_PLAIN_MONTE_CARLO_WORK_GROUP_SIZE 512
 
 __kernel void plain_integrate(
     size_t points_per_worker,
@@ -10,10 +10,12 @@ __kernel void plain_integrate(
     //The local (workgroup-shared) array where final results
     //will be stored and summed.
     __local float local_sums[MAX_PLAIN_MONTE_CARLO_WORK_GROUP_SIZE];
+    __local float local_square_sums[MAX_PLAIN_MONTE_CARLO_WORK_GROUP_SIZE];
 
     //Thread-local variables
     size_t local_id = get_local_id(0);
     float private_sum = 0.0;
+    float private_square_sum = 0.0;
 
     //Download the random number generator
     ranluxcl_state_t ranluxcl_state;
@@ -35,13 +37,16 @@ __kernel void plain_integrate(
         #set $struct_accessors = ["s%i" % i for i in xrange(0, 4)]
         #set $n_args = len($integrator.integrand.argument_types)
         #set $variable_specs = ["phase_space[%i].%s * (%s - %s) + %s" % (i/4, $struct_accessors[i % 4], $integrator.evaluation_function.argument_names[2*i + 1], $integrator.evaluation_function.argument_names[2*i], $integrator.evaluation_function.argument_names[2*i]) for i in xrange(0, $n_args)]
-        private_sum += ${integrator.integrand.name}(
+        float value = ${integrator.integrand.name}(
             ${",\n".join($variable_specs)}
         );
+        private_sum += value;
+        private_square_sum += (value * value);
     }
 
     //Store the local result
     local_sums[local_id] = private_sum;
+    local_square_sums[local_id] = private_square_sum;
 
     //Make sure everyone stores their results
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -54,12 +59,15 @@ __kernel void plain_integrate(
     if(local_id == 0)
     {
         float local_sum = 0.0;
+        float local_square_sum = 0.0;
         size_t local_size = get_local_size(0);
         for(size_t i = 0; i < local_size; i++)
         {
             local_sum += local_sums[i];
+            local_square_sum += local_square_sums[i];
         }
 
         atomic_add_float(result, local_sum);
+        atomic_add_float(result + 1, local_square_sum);
     }
 }
