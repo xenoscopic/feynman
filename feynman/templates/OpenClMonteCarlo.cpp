@@ -4,7 +4,6 @@
 //Standard includes
 \#include <cstdlib>
 \#include <cstdio>
-\#include <stdexcept>
 \#include <ctime>
 \#include <cmath>
 
@@ -79,19 +78,28 @@ using namespace std;
 ${integrator.name}::${integrator.name}() :
 _monte_carlo_type(${integrator.name}::MonteCarloPlain),
 _n_calls(500000),
-_device_id(NULL),
+_device(NULL),
+_compute_units(0),
+_max_concurrent_work_groups(0),
 _context(NULL),
 _command_queue(NULL),
 _program(NULL),
-_ran_init(NULL),
+_mem_set(NULL),
+_rng_init(NULL),
+_rng_init_work_group_size(0),
 _plain(NULL),
+_plain_work_group_size(0),
+_plain_work_item_count(0),
+_plain_rng_states(NULL),
 _miser(NULL),
+_miser_work_group_size(0),
+_miser_work_item_count(0),
+_miser_rng_states(NULL),
 _vegas(NULL),
-_sum(NULL),
-_output(NULL),
-_plain_resources(NULL),
-_miser_resources(NULL),
-_vegas_resources(NULL)
+_vegas_work_group_size(0),
+_vegas_work_item_count(0),
+_vegas_rng_states(NULL),
+_output(NULL)
 {
     //Try to find a device by type preference
     cl_device_type preferred_device_types[] = {
@@ -107,16 +115,25 @@ _vegas_resources(NULL)
     while(error == CL_DEVICE_NOT_FOUND
           && i < n_device_types)
     {
-        error = clGetDeviceIDs(NULL, preferred_device_types[i], 1, &_device_id, NULL);
+        error = clGetDeviceIDs(NULL, preferred_device_types[i], 1, &_device, NULL);
     }
     CHECK_CL_OPERATION(error, "Unable to find a valid compute device");
 
+    //Query the device's compute units
+    CHECK_CL_OPERATION(clGetDeviceInfo(_device,
+                                       CL_DEVICE_MAX_COMPUTE_UNITS,
+                                       sizeof(size_t),
+                                       &_compute_units,
+                                       NULL),
+                       "Unable to query device compute unit count");
+    _max_concurrent_work_groups = 2; //TODO: Find a way to query this
+
     //Create a compute context
-    _context = clCreateContext(0, 1, &_device_id, NULL, NULL, &error);
+    _context = clCreateContext(0, 1, &_device, NULL, NULL, &error);
     CHECK_CL_OPERATION(error, "Unable to create a compute context");
 
     //Create a command queue
-    _command_queue = clCreateCommandQueue(_context, _device_id, 0, &error);
+    _command_queue = clCreateCommandQueue(_context, _device, 0, &error);
     CHECK_CL_OPERATION(error, "Unable to create a command queue");
 
     //Compile the OpenCL code
@@ -149,7 +166,7 @@ _vegas_resources(NULL)
         char buffer[2048];
 
         clGetProgramBuildInfo(_program, 
-                              _device_id, 
+                              _device, 
                               CL_PROGRAM_BUILD_LOG, 
                               sizeof(buffer), 
                               buffer, 
@@ -159,8 +176,8 @@ _vegas_resources(NULL)
     }
     CHECK_CL_OPERATION(error, "Unable to compile OpenCL source");
 
-    //Grab out the integration kernels
-    _ran_init = clCreateKernel(_program, "random_initialize", &error);
+    //Grab out all kernels from the program
+    _rng_init = clCreateKernel(_program, "random_initialize", &error);
     CHECK_CL_OPERATION(error, "Unable to create initialization kernel");
     _mem_set = clCreateKernel(_program, "mem_set", &error);
     CHECK_CL_OPERATION(error, "Unable to create memory setting kernel");
@@ -171,24 +188,41 @@ _vegas_resources(NULL)
     _vegas = clCreateKernel(_program, "vegas_integrate", &error);
     CHECK_CL_OPERATION(error, "Unable to create vegas Monte Carlo integration kernel");
 
+    //Configure the random number generation intialization
+    //kernel.
+    CHECK_CL_OPERATION(clGetKernelWorkGroupInfo(_rng_init,
+                                                _device,
+                                                CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+                                                sizeof(size_t),
+                                                &_rng_init_work_group_size,
+                                                NULL),
+                       "Unable to determine preferred kernel work group size multiple for " \
+                       "random number generator initialization.");
+
+    //Configure kernel execution parameters
+    _configure_kernels();
+
     //Create the global output buffer
     _output = clCreateBuffer(_context, CL_MEM_WRITE_ONLY, 2 * sizeof(float), NULL, &error);
     CHECK_CL_OPERATION(error, "Unable to create output buffer");
-
-    //Configure kernel resources
-    _create_kernel_resources();
 }
 
 ${integrator.name}::~${integrator.name}()
 {
-    _release_kernel_resources();
     RELEASE_CL_MEMORY_SAFE(_output);
-    RELEASE_CL_KERNEL_SAFE(_sum);
+
+    RELEASE_CL_MEMORY_SAFE(_vegas_rng_states);
     RELEASE_CL_KERNEL_SAFE(_vegas);
+
+    RELEASE_CL_MEMORY_SAFE(_miser_rng_states);
     RELEASE_CL_KERNEL_SAFE(_miser);
+
+    RELEASE_CL_MEMORY_SAFE(_plain_rng_states);
     RELEASE_CL_KERNEL_SAFE(_plain);
+    
     RELEASE_CL_KERNEL_SAFE(_mem_set);
-    RELEASE_CL_KERNEL_SAFE(_ran_init);
+    RELEASE_CL_KERNEL_SAFE(_rng_init);
+    
     RELEASE_CL_PROGRAM_SAFE(_program);
     RELEASE_CL_COMMAND_QUEUE_SAFE(_command_queue);
     RELEASE_CL_CONTEXT_SAFE(_context);
@@ -207,8 +241,6 @@ ${integrator.name}::MonteCarloType ${integrator.name}::monte_carlo_type()
 void ${integrator.name}::set_n_calls(int n)
 {
     _n_calls = n;
-    _release_kernel_resources();
-    _create_kernel_resources();
 }
 
 int ${integrator.name}::n_calls()
@@ -220,33 +252,24 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
 {
     //Boilerplate variables
     cl_int _error;
-    size_t work_item_count = 1;
-
+    size_t points_per_work_item;
+    size_t total_n_calls;
+    
     //Queue the memset kernel
-    float mem_value = 0;
-    size_t memory_count = 2;
-    CHECK_CL_OPERATION(clSetKernelArg(_mem_set, 0, sizeof(float), &mem_value), 
-                       "Unable to set memory set value");
-    CHECK_CL_OPERATION(clSetKernelArg(_mem_set, 1, sizeof(cl_mem), &_output), 
-                       "Couldn't set memory set buffer");
-    CHECK_CL_OPERATION(clEnqueueNDRangeKernel(_command_queue, 
-                                              _mem_set, 
-                                              1, 
-                                              NULL, 
-                                              &memory_count,
-                                              &memory_count,
-                                              0, 
-                                              NULL, 
-                                              NULL),
-                       "Unable to queue random number memory setting kernel");
+    _enqueue_output_buffer_clear();
 
     //Enqueue the appropriate kernel
     if(_monte_carlo_type == MonteCarloPlain)
     {
-        work_item_count = _plain_resources->work_group_size * _plain_resources->work_group_count;
-        CHECK_CL_OPERATION(clSetKernelArg(_plain, 0, sizeof(size_t), &(_plain_resources->work_item_point_count)), 
+        points_per_work_item = _n_calls / _plain_work_item_count;
+        if(_n_calls % _plain_work_item_count)
+        {
+            points_per_work_item++;
+        }
+        total_n_calls = points_per_work_item * _plain_work_item_count;
+        CHECK_CL_OPERATION(clSetKernelArg(_plain, 0, sizeof(size_t), &points_per_work_item), 
                            "Unable to set number of integration points");
-        CHECK_CL_OPERATION(clSetKernelArg(_plain, 1, sizeof(cl_mem), &(_plain_resources->ranluxcl_states)), 
+        CHECK_CL_OPERATION(clSetKernelArg(_plain, 1, sizeof(cl_mem), &_plain_rng_states), 
                            "Couldn't set random number state buffer");
         CHECK_CL_OPERATION(clSetKernelArg(_plain, 2, sizeof(cl_mem), &_output), 
                            "Couldn't set output buffer");
@@ -258,8 +281,8 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
                                                   _plain, 
                                                   1, 
                                                   NULL, 
-                                                  &work_item_count,
-                                                  &(_plain_resources->work_group_size),
+                                                  &_plain_work_item_count,
+                                                  &_plain_work_group_size,
                                                   0, 
                                                   NULL, 
                                                   NULL),
@@ -283,32 +306,22 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
 
     //Enqueue the answer copy
     float result[2];
-    CHECK_CL_OPERATION(clEnqueueReadBuffer(_command_queue, 
-                                           _output, 
-                                           CL_FALSE, 
-                                           0, 
-                                           2 * sizeof(float), 
-                                           &result, 
-                                           0, 
-                                           NULL, 
-                                           NULL), 
-                       "Unable to read output buffer");
+    _enqueue_output_buffer_read(result, sizeof(result) / sizeof(float));
 
     //Wait for all operations to finish
     CHECK_CL_OPERATION(clFinish(_command_queue), "Unable to execute integration");
 
     //Calculate the total number of calls and the volume
-    float total_n_calls = work_item_count * _plain_resources->work_item_point_count;
     float volume = ${"*".join(["(%s - %s)" % ($integrator.evaluation_function.argument_names[2*i + 1], $integrator.evaluation_function.argument_names[2*i]) for i in xrange(0, len($integrator.integrand.argument_types))])};
     
     //The following calculations are based upon this documentation:
     //http://mathworld.wolfram.com/MonteCarloIntegration.html
 
     //Calculate mean
-    float mean = volume * result[0] / total_n_calls;
+    float mean = volume * result[0] / ((float)total_n_calls);
 
     //Calculate variance
-    float variance = volume * sqrt((result[1] - (result[0] * result[0] / total_n_calls)) / (total_n_calls * total_n_calls));
+    float variance = volume * sqrt((result[1] - (result[0] * result[0] / ((float)total_n_calls))) / (((float)total_n_calls) * ((float)total_n_calls)));
     if(error != NULL)
     {
         *error = variance;
@@ -317,170 +330,141 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
     return mean;
 }
 
-void ${integrator.name}::_create_kernel_resources()
+void ${integrator.name}::_configure_kernels()
 {
-    if(_plain_resources == NULL)
-    {
-        _plain_resources = new _${integrator.name}KernelResources(_context, _command_queue, _ran_init, _plain, _device_id, _n_calls);
-    }
-    if(_miser_resources == NULL)
-    {
-        _miser_resources = new _${integrator.name}KernelResources(_context, _command_queue, _ran_init, _miser, _device_id, _n_calls);
-    }
-    if(_vegas_resources == NULL)
-    {
-        _vegas_resources = new _${integrator.name}KernelResources(_context, _command_queue, _ran_init, _vegas, _device_id, _n_calls);
-    }
+    _configure_kernel(_plain,
+                      &_plain_work_group_size,
+                      &_plain_work_item_count,
+                      &_plain_rng_states);
+    _configure_kernel(_miser,
+                      &_miser_work_group_size,
+                      &_miser_work_item_count,
+                      &_miser_rng_states);
+    _configure_kernel(_vegas,
+                      &_vegas_work_group_size,
+                      &_vegas_work_item_count,
+                      &_vegas_rng_states);
 }
 
-void ${integrator.name}::_release_kernel_resources()
+void ${integrator.name}::_configure_kernel(cl_kernel kernel,
+                                           size_t *work_group_size,
+                                           size_t *work_item_count,
+                                           cl_mem *rng_buffer)
 {
-    if(_plain_resources != NULL)
-    {
-        delete _plain_resources;
-        _plain_resources = NULL;
-    }
-    if(_miser_resources != NULL)
-    {
-        delete _miser_resources;
-        _miser_resources = NULL;
-    }
-    if(_vegas_resources != NULL)
-    {
-        delete _vegas_resources;
-        _vegas_resources = NULL;
-    }
-}
+    //Clear any prior information
+    RELEASE_CL_MEMORY_SAFE(*rng_buffer);
 
-${integrator.name}::_${integrator.name}KernelResources::_${integrator.name}KernelResources() :
-work_item_point_count(0),
-work_group_size(0),
-work_group_count(0),
-ranluxcl_states(NULL)
-{
-
-}
-
-${integrator.name}::_${integrator.name}KernelResources::_${integrator.name}KernelResources(cl_context context,
-                                                                                           cl_command_queue command_queue,
-                                                                                           cl_kernel random_init_kernel,
-                                                                                           cl_kernel method_kernel,
-                                                                                           cl_device_id device,
-                                                                                           int n_calls) :
-work_group_size(0),
-work_group_count(0),
-work_item_point_count(0),
-ranluxcl_states(NULL)
-{
-    //Kernel/Device execution specs
-    //The preferred work group size multiple for the random 
-    //number initializtaion kernel on the device
-    size_t preferred_random_init_work_group_size_multiple;
-    //The preferred work group size multiple for the integration
-    //kernel on the device
-    size_t preferred_work_group_size_multiple;
-    //Number of dimensions of work items that the device supports, guaranteed to be at least 3
-    const size_t max_work_item_dimensions = 3;
-    //Maximum number of work items along the first dimension
-    size_t max_work_items_in_1d;
-    
-    //Grab execution specs
-    CHECK_CL_OPERATION(clGetKernelWorkGroupInfo(random_init_kernel,
-                                                device,
-                                                CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+    //Calculate the maximum work group size
+    //and preferred work group size multiple
+    //for this device and kernel
+    size_t max_work_group_size;
+    CHECK_CL_OPERATION(clGetKernelWorkGroupInfo(kernel,
+                                                _device,
+                                                CL_KERNEL_WORK_GROUP_SIZE,
                                                 sizeof(size_t),
-                                                &preferred_random_init_work_group_size_multiple,
+                                                &max_work_group_size,
                                                 NULL),
-                       "Unable to determine preferred work group size multiple for initialization kernel");
-    CHECK_CL_OPERATION(clGetKernelWorkGroupInfo(method_kernel,
-                                                device,
+                       "Unable to determine maximum kernel work group size");
+
+    size_t preferred_work_group_size_multiple;
+    CHECK_CL_OPERATION(clGetKernelWorkGroupInfo(kernel,
+                                                _device,
                                                 CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
                                                 sizeof(size_t),
                                                 &preferred_work_group_size_multiple,
                                                 NULL),
-                       "Unable to determine preferred work group size multiple for integration kernel");
+                       "Unable to determine preferred kernel work group size multiple");
 
-    //HACK: There seems to be a bug in this method, at least on OS X,
-    //where if you make this query twice for the same device, it returns
-    //a huge number (2251765453950976) for the number of dimensions.
-    //Since the number of dimensions is likely going to remain 3 for
-    //a while, I'll just fix that above.
-    // CHECK_CL_OPERATION(clGetDeviceInfo(device, 
-    //                                    CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, 
-    //                                    sizeof(size_t), 
-    //                                    &max_work_item_dimensions, 
-    //                                    NULL),
-    //                    "Unable to determine maximum number of work item dimensions");
-    size_t *max_global_work_items = new size_t[max_work_item_dimensions];
-    CHECK_CL_OPERATION(clGetDeviceInfo(device, 
-                                       CL_DEVICE_MAX_WORK_ITEM_SIZES, 
-                                       max_work_item_dimensions * sizeof(size_t), 
-                                       max_global_work_items, 
-                                       NULL),
-                       "Unable to determine maximum number of work item dimensions");
-    max_work_items_in_1d = max_global_work_items[0];
-    delete [] max_global_work_items;
-    max_global_work_items = NULL;
-    
-    //Calculate execution parameters
-    size_t work_item_count = max_work_items_in_1d;
-
-    //Calculate the work group size
-    work_group_size = preferred_work_group_size_multiple;
-
-    //Calculate the number of work groups
-    work_group_count = work_item_count / work_group_size;
-
-    //Calculate the number of points each work item will
-    //have to calculate
-    work_item_point_count = n_calls / work_item_count;
-    if(work_item_point_count * work_item_count < n_calls)
+    //Run the work group size up until <= to the maximum
+    *work_group_size = preferred_work_group_size_multiple;
+    while(*work_group_size <= max_work_group_size)
     {
-        work_item_point_count++; //Take care of division remainder
+        *work_group_size += preferred_work_group_size_multiple;
     }
+    *work_group_size -= preferred_work_group_size_multiple;
 
-    //Print execution information
-    // printf("Work Group Size:  %zu\n", work_group_size);
-    // printf("Work Group Count: %zu\n", work_group_count);
-    // printf("Total Work Items: %zu\n", work_item_count);
-    // printf("Points per Work Item: %zu\n", work_item_point_count);
+    //Calculate the global work item count
+    *work_item_count = _compute_units * (*work_group_size) * _max_concurrent_work_groups;
 
-    //Create the random number generator and output buffers
+    //Create the random number buffer
     cl_int error;
-    ranluxcl_states = clCreateBuffer(context,
-                                     CL_MEM_READ_WRITE, 
-                                     work_item_count * RANLUXCL_STATE_SIZE, 
-                                     NULL, 
-                                     &error);
-    CHECK_CL_OPERATION(error, "Unable to create random number generator");
+    *rng_buffer = clCreateBuffer(_context,
+                                 CL_MEM_READ_WRITE, 
+                                 (*work_item_count) * RANLUXCL_STATE_SIZE, 
+                                 NULL, 
+                                 &error);
+    CHECK_CL_OPERATION(error, "Unable to create random number generator state buffer");
 
+    //Print some information
+    // printf("--------\n");
+    // printf("Work Group Size: %zu\n", *work_group_size);
+    // printf("Work Item Count: %zu\n", *work_item_count);
+    // printf("RNG Buffer: %p\n", rng_buffer);
+    // printf("RNG Init Work Group Size: %zu\n", _rng_init_work_group_size);
+    // printf("--------\n");
+
+    //Initialize the random number buffer
     //Run the random number initialization kernel
     cl_uint seed;
     time_t t;
     time(&t);
     seed = t;
     
-    CHECK_CL_OPERATION(clSetKernelArg(random_init_kernel, 0, sizeof(seed), &seed), 
+    CHECK_CL_OPERATION(clSetKernelArg(_rng_init, 0, sizeof(seed), &seed), 
                        "Unable to set random number seed");
-    CHECK_CL_OPERATION(clSetKernelArg(random_init_kernel, 1, sizeof(cl_mem), &ranluxcl_states), 
+    CHECK_CL_OPERATION(clSetKernelArg(_rng_init, 1, sizeof(cl_mem), rng_buffer), 
                        "Couldn't set random number state buffer");
-    CHECK_CL_OPERATION(clEnqueueNDRangeKernel(command_queue, 
-                                              random_init_kernel, 
+    //HACK: Technically the work item counts for the integration kernel
+    //might not jive with the random number generator initialization
+    //kernel work group size, but I'm not going to bother fixing this
+    //until it becomes a problem.
+    CHECK_CL_OPERATION(clEnqueueNDRangeKernel(_command_queue, 
+                                              _rng_init, 
                                               1, 
                                               NULL, 
-                                              &work_item_count,
-                                              &preferred_random_init_work_group_size_multiple,
+                                              work_item_count,
+                                              &_rng_init_work_group_size,
                                               0, 
                                               NULL, 
                                               NULL),
                        "Unable to queue random number initialization kernel");
-    CHECK_CL_OPERATION(clFinish(command_queue), 
+    CHECK_CL_OPERATION(clFinish(_command_queue), 
                        "Unable to execute random number initialization kernel");
 }
 
-${integrator.name}::_${integrator.name}KernelResources::~_${integrator.name}KernelResources()
+void ${integrator.name}::_enqueue_output_buffer_clear()
 {
-    RELEASE_CL_MEMORY_SAFE(ranluxcl_states);
+    float mem_value = 0;
+    size_t memory_count = 2;
+    CHECK_CL_OPERATION(clSetKernelArg(_mem_set, 0, sizeof(float), &mem_value), 
+                       "Unable to set memory set value");
+    CHECK_CL_OPERATION(clSetKernelArg(_mem_set, 1, sizeof(cl_mem), &_output), 
+                       "Couldn't set memory set buffer");
+    CHECK_CL_OPERATION(clEnqueueNDRangeKernel(_command_queue, 
+                                              _mem_set, 
+                                              1, 
+                                              NULL, 
+                                              &memory_count,
+                                              &memory_count,
+                                              0, 
+                                              NULL, 
+                                              NULL),
+                       "Unable to queue random number memory setting kernel");
+}
+
+void ${integrator.name}::_enqueue_output_buffer_read(float *host_buffer, 
+                                                     size_t count)
+{
+    CHECK_CL_OPERATION(clEnqueueReadBuffer(_command_queue, 
+                                           _output, 
+                                           CL_FALSE, 
+                                           0, 
+                                           count * sizeof(float), 
+                                           host_buffer, 
+                                           0, 
+                                           NULL, 
+                                           NULL), 
+                       "Unable to read output buffer");
 }
 
 const char * ${integrator.name}::_fixes_source = 

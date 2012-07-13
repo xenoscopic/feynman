@@ -51,7 +51,7 @@ void run_unit_cylinder_integrator(const char *name, typename T::MonteCarloType m
     //Create the integrator
     T integral;
     integral.set_monte_carlo_type(mc_type);
-    integral.set_n_calls(500000);
+    integral.set_n_calls(10000000);
 
     //Run the test
     printf("Running %s:\n", name);
@@ -78,7 +78,7 @@ void run_random_walk_integrator(const char *name, typename T::MonteCarloType mc_
     //Create the integrator
     T integral;
     integral.set_monte_carlo_type(mc_type);
-    integral.set_n_calls(500000);
+    integral.set_n_calls(10000000);
 
     //Run the test
     printf("Running %s:\n", name);
@@ -112,7 +112,7 @@ int main()
         unit_cylinder_gsl_integrator::MonteCarloVegas);
     #endif
     #ifdef HAVE_OPENCL
-    run_unit_cylinder_integrator<unit_cylinder_opencl_integrator>("OpenCL Unit Cylinder", 
+    run_unit_cylinder_integrator<unit_cylinder_opencl_integrator>("OpenCL Plain Unit Cylinder", 
         unit_cylinder_opencl_integrator::MonteCarloPlain);
     #endif
 
@@ -126,7 +126,7 @@ int main()
         random_walk_gsl_integrator::MonteCarloVegas);
     #endif
     #ifdef HAVE_OPENCL
-    run_random_walk_integrator<random_walk_opencl_integrator>("OpenCL Random Walk",
+    run_random_walk_integrator<random_walk_opencl_integrator>("OpenCL Plain Random Walk",
         random_walk_opencl_integrator::MonteCarloPlain);
     #endif
 
