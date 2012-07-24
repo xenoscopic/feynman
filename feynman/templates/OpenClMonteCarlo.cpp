@@ -2,6 +2,7 @@
 \#include "${primary_header_include}"
 
 //Standard includes
+\#include <vector>
 \#include <cstdlib>
 \#include <cstdio>
 \#include <ctime>
@@ -102,15 +103,18 @@ _vegas_work_item_count(0),
 _vegas_rng_states(NULL),
 _output(NULL)
 {
-    //For now, just grab the first platform
+    //Grab all available platforms
     cl_uint num_platforms;
-    CHECK_CL_OPERATION(clGetPlatformIDs(1, &_platform, &num_platforms),
-                       "Unable to find a valid platform");
+    CHECK_CL_OPERATION(clGetPlatformIDs(0, NULL, &num_platforms),
+                       "Unable to get platform count");
     if(num_platforms == 0)
     {
         fprintf(stderr, "ERROR: Unable to find any OpenCL platform\n");
         exit(EXIT_FAILURE);
     }
+    vector<cl_platform_id> platforms(num_platforms, NULL);
+    CHECK_CL_OPERATION(clGetPlatformIDs(num_platforms, &platforms[0], NULL),
+                       "Unable to find a valid platform");
 
     //Try to find a device by type preference
     cl_device_type preferred_device_types[] = {
@@ -126,7 +130,18 @@ _output(NULL)
     while(error == CL_DEVICE_NOT_FOUND
           && i < n_device_types)
     {
-        error = clGetDeviceIDs(_platform, preferred_device_types[i], 1, &_device, NULL);
+        vector<cl_platform_id>::iterator plat_it;
+        for(plat_it = platforms.begin();
+            plat_it != platforms.end();
+            plat_it++)
+        {
+            error = clGetDeviceIDs(*plat_it, preferred_device_types[i], 1, &_device, NULL);
+            if(error != CL_DEVICE_NOT_FOUND)
+            {
+                _platform = *plat_it;
+                break;
+            }
+        }
     }
     CHECK_CL_OPERATION(error, "Unable to find a valid compute device");
 
