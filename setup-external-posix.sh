@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #User configuration
-MADGRAPH_REMOTE_TARBALL="https://launchpad.net/madgraph5/trunk/1.4.0/+download/MadGraph5_v1.4.6.tar.gz"
+MADGRAPH_REMOTE_TARBALL="https://launchpad.net/madgraph5/trunk/1.4.0/+download/MadGraph5_v1.4.7.tar.gz"
 LLVM_REMOTE_TARBALL="http://llvm.org/releases/3.1/llvm-3.1.src.tar.gz"
 CLANG_REMOTE_TARBALL="http://llvm.org/releases/3.1/clang-3.1.src.tar.gz"
 COMPILER_RT_REMOTE_TARBALL="http://llvm.org/releases/3.1/compiler-rt-3.1.src.tar.gz"

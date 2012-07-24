@@ -37,6 +37,7 @@ class $integrator.name
         //OpenCL resources
         MonteCarloType _monte_carlo_type; //The type of Monte Carlo integration
         int _n_calls; //The number of calls for the integration to perform
+	cl_platform_id _platform; //The platform to use
         cl_device_id _device; //The device to run on
         size_t _compute_units; //The number of compute units on the device (CL_DEVICE_MAX_COMPUTE_UNITS)
         size_t _max_concurrent_work_groups; //The maximum number of concurrent blocks allowed per multiprocessor

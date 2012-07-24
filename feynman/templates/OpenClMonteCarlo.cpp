@@ -78,6 +78,7 @@ using namespace std;
 ${integrator.name}::${integrator.name}() :
 _monte_carlo_type(${integrator.name}::MonteCarloPlain),
 _n_calls(500000),
+_platform(NULL),
 _device(NULL),
 _compute_units(0),
 _max_concurrent_work_groups(0),
@@ -101,6 +102,16 @@ _vegas_work_item_count(0),
 _vegas_rng_states(NULL),
 _output(NULL)
 {
+    //For now, just grab the first platform
+    cl_uint num_platforms;
+    CHECK_CL_OPERATION(clGetPlatformIDs(1, &_platform, &num_platforms),
+                       "Unable to find a valid platform");
+    if(num_platforms == 0)
+    {
+        fprintf(stderr, "ERROR: Unable to find any OpenCL platform\n");
+        exit(EXIT_FAILURE);
+    }
+
     //Try to find a device by type preference
     cl_device_type preferred_device_types[] = {
         CL_DEVICE_TYPE_GPU,
@@ -115,7 +126,7 @@ _output(NULL)
     while(error == CL_DEVICE_NOT_FOUND
           && i < n_device_types)
     {
-        error = clGetDeviceIDs(NULL, preferred_device_types[i], 1, &_device, NULL);
+        error = clGetDeviceIDs(_platform, preferred_device_types[i], 1, &_device, NULL);
     }
     CHECK_CL_OPERATION(error, "Unable to find a valid compute device");
 
@@ -165,14 +176,15 @@ _output(NULL)
         size_t length;
         char buffer[2048];
 
-        clGetProgramBuildInfo(_program, 
-                              _device, 
-                              CL_PROGRAM_BUILD_LOG, 
-                              sizeof(buffer), 
-                              buffer, 
-                              &length);
+        CHECK_CL_OPERATION(clGetProgramBuildInfo(_program, 
+                                                 _device, 
+                                                 CL_PROGRAM_BUILD_LOG, 
+                                                 sizeof(buffer), 
+                                                 buffer, 
+                                                 &length),
+                           "Build failure.  Unable to get build failure information");
 
-        printf("ERROR: Unable to build (compile) the OpenCL program (%i):\n", error);
+        printf("ERROR: Unable to build (compile) the OpenCL program (%i):\n%s\n", error, buffer);
     }
     CHECK_CL_OPERATION(error, "Unable to compile OpenCL source");
 
@@ -252,8 +264,8 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
 {
     //Boilerplate variables
     cl_int _error;
-    size_t points_per_work_item;
-    size_t total_n_calls;
+    cl_uint points_per_work_item;
+    cl_uint total_n_calls;
     
     //Queue the memset kernel
     _enqueue_output_buffer_clear();
@@ -267,7 +279,7 @@ $integrator.evaluation_function.return_type ${integrator.name}::operator()($inte
             points_per_work_item++;
         }
         total_n_calls = points_per_work_item * _plain_work_item_count;
-        CHECK_CL_OPERATION(clSetKernelArg(_plain, 0, sizeof(size_t), &points_per_work_item), 
+        CHECK_CL_OPERATION(clSetKernelArg(_plain, 0, sizeof(cl_uint), &points_per_work_item), 
                            "Unable to set number of integration points");
         CHECK_CL_OPERATION(clSetKernelArg(_plain, 1, sizeof(cl_mem), &_plain_rng_states), 
                            "Couldn't set random number state buffer");
