@@ -1,6 +1,9 @@
 #ifndef OPENCL_MONTE_CARLO_FIXES_CL
 #define OPENCL_MONTE_CARLO_FIXES_CL
 
+//Enable floating point
+#pragma OPENCL EXTENSION cl_khr_fp64: enable
+
 /* 
  * A collection of macros to help normalize differet
  * OpenCL implementations to the point where they are

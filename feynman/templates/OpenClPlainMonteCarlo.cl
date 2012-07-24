@@ -1,4 +1,4 @@
-#define MAX_PLAIN_MONTE_CARLO_WORK_GROUP_SIZE 512
+#define MAX_PLAIN_MONTE_CARLO_WORK_GROUP_SIZE 1024
 
 __kernel void plain_integrate(
     unsigned int points_per_worker,
