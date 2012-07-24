@@ -1,7 +1,7 @@
 #define MAX_PLAIN_MONTE_CARLO_WORK_GROUP_SIZE 512
 
 __kernel void plain_integrate(
-    cl_uint points_per_worker,
+    unsigned int points_per_worker,
     __global ranluxcl_state_t *ranluxcl_states,
     __global float *result,
     $integrator.evaluation_function.argument_signature
@@ -13,7 +13,7 @@ __kernel void plain_integrate(
     __local float local_square_sums[MAX_PLAIN_MONTE_CARLO_WORK_GROUP_SIZE];
 
     //Thread-local variables
-    cl_uint local_id = get_local_id(0);
+    unsigned int local_id = get_local_id(0);
     float private_sum = 0.0;
     float private_square_sum = 0.0;
 
@@ -22,13 +22,13 @@ __kernel void plain_integrate(
     ranluxcl_download_seed(&ranluxcl_state, ranluxcl_states);
 
     //Loop over and evaluate random phase-space points.
-    for(cl_uint i = 0; i < points_per_worker; i++)
+    for(unsigned int i = 0; i < points_per_worker; i++)
     {
         //Generate a random phase-space point
         #set $n_blocks = len($integrator.integrand.argument_types) / 4
         #set $n_blocks = $n_blocks + 1 if len($integrator.integrand.argument_types) % 4 else 0
         float4 phase_space[$n_blocks];
-        for(cl_uint p = 0; p < $n_blocks; p++)
+        for(unsigned int p = 0; p < $n_blocks; p++)
         {
             phase_space[p] = ranluxcl32(&ranluxcl_state);
         }
@@ -60,8 +60,8 @@ __kernel void plain_integrate(
     {
         float local_sum = 0.0;
         float local_square_sum = 0.0;
-        cl_uint local_size = get_local_size(0);
-        for(cl_uint i = 0; i < local_size; i++)
+        unsigned int local_size = get_local_size(0);
+        for(unsigned int i = 0; i < local_size; i++)
         {
             local_sum += local_sums[i];
             local_square_sum += local_square_sums[i];
