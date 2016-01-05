@@ -5,7 +5,8 @@ evaluated on either a CPU (using GSL) or a GPU via the same integration API.
 The original goal was to implement VEGAS GPU integration for Matrix Element
 Method analyses, but sadly I ran out of time to make that a reality...  Plain
 Monte Carlo integration *is* implemented on the GPU, and even works for
-some sample integrands, but VEGAS is not.
+some sample integrands, but VEGAS is not, so Matrix Element integration would
+likely be too slow to be practical (Matix Element phase space is very spiky).
 
 This code is likely not fit for any use, but might be a useful reference in the
 future.
